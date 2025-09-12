@@ -310,3 +310,41 @@ def uniform_step_crossover(p1: Program, p2: Program, min_length: int, max_length
         c.append(step)
 
     return c
+
+
+def homologous_crossover(p1: Program, p2: Program, min_length: int, max_length: int, rand: random.Random) -> Program:
+    """
+    Homologous crossover for linear GP programs.
+    Aligns the two parents and swaps corresponding subsequences.
+    Ensures child length is in [min_length, max_length].
+    """
+
+    if len(p1) < 2 or len(p2) < 2:
+        # fallback to uniform crossover
+        return uniform_step_crossover(p1, p2, min_length, max_length, rand)
+
+    p1, p2 = clone_program(p1), clone_program(p2)
+
+    # Align lengths
+    min_len = min(len(p1), len(p2))
+    max_len = max(len(p1), len(p2))
+
+    # Select aligned segment
+    i, j = sorted(rand.sample(range(min_len), 2))
+
+    # Child starts as a copy of parent1
+    c = clone_program(p1)
+
+    # Replace aligned segment with p2's segment
+    c[i:j] = clone_program(p2[i:j])
+
+    # Enforce length bounds
+    if len(c) < min_length:
+        # pad with steps from p2 (cycling if necessary)
+        while len(c) < min_length:
+            c.append(clone_program([rand.choice(p1 + p2)])[0])
+    elif len(c) > max_length:
+        # truncate
+        c = c[:max_length]
+
+    return c

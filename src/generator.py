@@ -95,21 +95,22 @@ def shift_1s(interval: tuple[int, int], L: np.ndarray) -> np.ndarray:
 
 # === TERMINALS ===
 
-def random_terminal(n: int, kind: str, rand: random.Random):
+def random_terminal(N: int, kind: str, rand: random.Random):
+    """Generate a random terminal of the given kind."""
     if kind == "index":
-        return rand.randint(0, n - 1)
+        return rand.randint(0, N - 1)
     elif kind == "indexes":
-        size = rand.randint(2, 100)
+        size = rand.randint(2, N // 2)
         if size % 2 != 0:
             size += 1
-        return tuple([rand.randint(0, n - 1) for _ in range(size)])
+        return tuple([rand.randint(0, N - 1) for _ in range(size)])
     elif kind == "seed":
         return rand.randint(1, 99999)
     elif kind == "int":
-        return rand.randint(1, n - 1)
+        return rand.randint(1, N - 1)
     elif kind == "interval":
-        max_interval_size = n // 4
-        start = rand.randint(0, n - max_interval_size)
+        max_interval_size = N // 4
+        start = rand.randint(0, N - max_interval_size)
         end = rand.randint(start + 1, start + max_interval_size - 1)
         return start, end
     else:
@@ -128,22 +129,22 @@ def primitives():
         #    "func": consecutive_swaps,
         #    "params": ["indexes"]
         #},
-        "reverse": {
-            "func": reverse,
-            "params": ["interval"]
-        },
+        #"reverse": {
+        #    "func": reverse,
+        #    "params": ["interval"]
+        #},
         #"scramble": {
         #    "func": scramble,
         #    "params": ["interval", "seed"]
         #},
-        "rotate": {
-            "func": rotate,
-            "params": ["interval", "int"]
-        },
-        "shift_1s": {
-            "func": shift_1s,
-            "params": ["interval"]
-        }
+        #"rotate": {
+        #    "func": rotate,
+        #    "params": ["interval", "int"]
+        #},
+        #"shift_1s": {
+        #    "func": shift_1s,
+        #    "params": ["interval"]
+        #}
     }
 
     return primitives_dict
@@ -156,7 +157,7 @@ def clone_program(program: list[tuple[str, list]]) -> list[tuple[str, list]]:
     return [(a, [e for e in b]) for a, b in program]
 
 
-def random_program(n: int, min_length: int, max_length: int, rng: np.random.Generator, rand: random.Random) -> list[tuple[str, list]]:
+def random_program(N: int, min_length: int, max_length: int, rng: np.random.Generator, rand: random.Random) -> list[tuple[str, list]]:
     """Generate a random permutation program (list of steps)."""
     primitives_dict = primitives()
     primitives_keys = sorted(list(primitives_dict.keys()))
@@ -165,7 +166,7 @@ def random_program(n: int, min_length: int, max_length: int, rng: np.random.Gene
     for _ in range(length):
         name = rand.choice(primitives_keys)
         entry = primitives_dict[name]
-        params = [random_terminal(n, kind, rand) for kind in entry["params"]]
+        params = [random_terminal(N, kind, rand) for kind in entry["params"]]
         program.append((name, params))
     return program
 

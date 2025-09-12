@@ -193,7 +193,7 @@ def programs_ea(
     generate = lambda: random_program(domain.space_cardinality(), min_length, max_length, rng, rand)
     evaluate = lambda x: walsh.granular_non_linearity(walsh.apply(execute_program(x, base_truth_table))[0])
     select = lambda x, y: tournament(x, y, tournament_size, rand)
-    mate = lambda x, y: uniform_step_crossover(x, y, min_length, max_length, rand)
+    mate = lambda x, y: homologous_crossover(x, y, min_length, max_length, rand)
     mutate = lambda x: mutate_program(x, domain.space_cardinality(), min_length, max_length, rand)
 
     best_solution, best_score = evolutionary_algorithm(
@@ -210,7 +210,7 @@ def programs_ea(
         cx_rate=0.5,
         mut_rate=0.5,
         mutually_exclusive=True,
-        plateau_iter=1000
+        plateau_iter=1000000
     )
 
     return best_solution, best_score
