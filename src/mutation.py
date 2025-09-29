@@ -48,6 +48,7 @@ Program = list[tuple[str, list]]
 def mutate_program(
     program: Program,
     n: int,
+    sampling_probabilities: list[float],
     min_length: int,
     max_length: int,
     rand: random.Random,
@@ -67,7 +68,7 @@ def mutate_program(
 
     # --- INSERT ---
     if op == "INSERT" and len(prog) < max_length:
-        new_name = rand.choice(primitives_keys)
+        new_name = rand.choices(primitives_keys, weights=sampling_probabilities, k=1)[0]
         new_params = [random_terminal(n, kind, rand) for kind in primitives_dict[new_name]["params"]]
         insert_pos = rand.randrange(len(prog) + 1)
         prog.insert(insert_pos, (new_name, new_params))
@@ -86,7 +87,7 @@ def mutate_program(
 
             if rand.random() < 0.5:
                 # Replace entire primitive
-                new_name = rand.choice(primitives_keys)
+                new_name = rand.choices(primitives_keys, weights=sampling_probabilities, k=1)[0]
                 new_params = [random_terminal(n, kind, rand) for kind in primitives_dict[new_name]["params"]]
                 prog[idx] = (new_name, new_params)
             else:

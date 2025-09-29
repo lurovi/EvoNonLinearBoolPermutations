@@ -94,8 +94,10 @@ def truth_tables_ea(
         rng=rng,
         rand=rand,
         verbose=verbose,
-        cx_rate=0.6,
-        mut_rate=0.2,
+        cx_rate=0.5,
+        mut_rate=0.5,
+        mutually_exclusive=True,
+        plateau_iter=1000000
     )
 
     return best_solution, best_score
@@ -112,6 +114,7 @@ def programs_rs(
         seed: int,
         min_length: int,
         max_length: int,
+        sampling_probabilities: list[float],
         verbose: bool = False
 ):
     rng = np.random.default_rng(seed)
@@ -123,7 +126,7 @@ def programs_rs(
     base_truth_table = generate_alternate_balanced_binary_vector(domain.space_cardinality())
     base_truth_table, _ = truth_tables_rs(n_bits, warm_up, seed, verbose=False)
 
-    generate = lambda: random_program(domain.space_cardinality(), min_length, max_length, rng, rand)
+    generate = lambda: random_program(domain.space_cardinality(), sampling_probabilities, min_length, max_length, rng, rand)
     evaluate = lambda x: walsh.granular_non_linearity(walsh.apply(execute_program(x, base_truth_table))[0])
 
     best_solution, best_score = random_search(
@@ -143,6 +146,7 @@ def programs_sa(
         seed: int,
         min_length: int,
         max_length: int,
+        sampling_probabilities: list[float],
         verbose: bool = False,
 ):
     rng = np.random.default_rng(seed)
@@ -154,9 +158,9 @@ def programs_sa(
     base_truth_table = generate_alternate_balanced_binary_vector(domain.space_cardinality())
     base_truth_table, _ = truth_tables_sa(n_bits, warm_up, seed, verbose=False)
 
-    generate = lambda: random_program(domain.space_cardinality(), min_length, max_length, rng, rand)
+    generate = lambda: random_program(domain.space_cardinality(), sampling_probabilities, min_length, max_length, rng, rand)
     evaluate = lambda x: walsh.granular_non_linearity(walsh.apply(execute_program(x, base_truth_table))[0])
-    mutate = lambda x: mutate_program(x, domain.space_cardinality(), min_length, max_length, rand)
+    mutate = lambda x: mutate_program(x, domain.space_cardinality(), sampling_probabilities, min_length, max_length, rand)
 
     best_solution, best_score = simulated_annealing(
         n_iter=n_iter - warm_up,
@@ -179,6 +183,7 @@ def programs_ea(
         seed: int,
         min_length: int,
         max_length: int,
+        sampling_probabilities: list[float],
         verbose: bool = False,
 ):
     rng = np.random.default_rng(seed)
@@ -190,11 +195,11 @@ def programs_ea(
     base_truth_table = generate_alternate_balanced_binary_vector(domain.space_cardinality())
     base_truth_table, _ = truth_tables_ea(n_bits, pop_size, warm_up, tournament_size, seed, verbose=False)
 
-    generate = lambda: random_program(domain.space_cardinality(), min_length, max_length, rng, rand)
+    generate = lambda: random_program(domain.space_cardinality(), sampling_probabilities, min_length, max_length, rng, rand)
     evaluate = lambda x: walsh.granular_non_linearity(walsh.apply(execute_program(x, base_truth_table))[0])
     select = lambda x, y: tournament(x, y, tournament_size, rand)
     mate = lambda x, y: homologous_crossover(x, y, min_length, max_length, rand)
-    mutate = lambda x: mutate_program(x, domain.space_cardinality(), min_length, max_length, rand)
+    mutate = lambda x: mutate_program(x, domain.space_cardinality(), sampling_probabilities, min_length, max_length, rand)
 
     best_solution, best_score = evolutionary_algorithm(
         pop_size=pop_size,

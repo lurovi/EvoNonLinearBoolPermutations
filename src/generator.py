@@ -51,6 +51,15 @@ def consecutive_swaps(indexes: tuple[int, ...], L: np.ndarray) -> np.ndarray:
     return L
 
 
+def block_swaps(indexes: tuple[int, ...], L: np.ndarray) -> np.ndarray:
+    half = len(indexes) // 2
+    sorted_indexes = sorted(indexes)
+    for ii in range(half):
+        i, j = sorted_indexes[ii], sorted_indexes[ii + half]
+        L[i], L[j] = L[j], L[i]
+    return L
+
+
 def reverse(interval: tuple[int, int], L: np.ndarray) -> np.ndarray:
     start, end = interval[0], interval[1]
     start, end = min(start, end), max(start, end)
@@ -110,6 +119,15 @@ def random_terminal(N: int, kind: str, rand: random.Random):
         return rand.randint(1, N - 1)
     elif kind == "interval":
         max_interval_size = N // 4
+        if max_interval_size < 2:
+            max_interval_size = 2
+        start = rand.randint(0, N - max_interval_size)
+        end = rand.randint(start + 1, start + max_interval_size - 1)
+        return start, end
+    elif kind == "small_interval":
+        max_interval_size = N // 10
+        if max_interval_size < 2:
+            max_interval_size = 2
         start = rand.randint(0, N - max_interval_size)
         end = rand.randint(start + 1, start + max_interval_size - 1)
         return start, end
@@ -121,30 +139,34 @@ def random_terminal(N: int, kind: str, rand: random.Random):
 
 def primitives():
     primitives_dict = {
-        "swap": {
+        "1-swap": {
             "func": swap,
             "params": ["index", "index"]
         },
-        #"consecutive_swaps": {
-        #    "func": consecutive_swaps,
-        #    "params": ["indexes"]
-        #},
-        #"reverse": {
-        #    "func": reverse,
-        #    "params": ["interval"]
-        #},
-        #"scramble": {
-        #    "func": scramble,
-        #    "params": ["interval", "seed"]
-        #},
-        #"rotate": {
-        #    "func": rotate,
-        #    "params": ["interval", "int"]
-        #},
-        #"shift_1s": {
-        #    "func": shift_1s,
-        #    "params": ["interval"]
-        #}
+        "2-consecutive_swaps": {
+           "func": consecutive_swaps,
+           "params": ["indexes"]
+        },
+        "3-block_swaps": {
+           "func": block_swaps,
+           "params": ["indexes"]
+        },
+        "4-reverse": {
+           "func": reverse,
+           "params": ["interval"]
+        },
+        "5-scramble": {
+           "func": scramble,
+           "params": ["interval", "seed"]
+        },
+        "6-rotate": {
+           "func": rotate,
+           "params": ["interval", "int"]
+        },
+        "7-shift_1s": {
+           "func": shift_1s,
+           "params": ["interval"]
+        }
     }
 
     return primitives_dict
@@ -157,14 +179,14 @@ def clone_program(program: list[tuple[str, list]]) -> list[tuple[str, list]]:
     return [(a, [e for e in b]) for a, b in program]
 
 
-def random_program(N: int, min_length: int, max_length: int, rng: np.random.Generator, rand: random.Random) -> list[tuple[str, list]]:
+def random_program(N: int, sampling_probabilities: list[float], min_length: int, max_length: int, rng: np.random.Generator, rand: random.Random) -> list[tuple[str, list]]:
     """Generate a random permutation program (list of steps)."""
     primitives_dict = primitives()
     primitives_keys = sorted(list(primitives_dict.keys()))
-    length = rng.integers(min_length, max_length + 1)
+    length = int(rng.integers(min_length, max_length + 1))
     program = []
-    for _ in range(length):
-        name = rand.choice(primitives_keys)
+    names = rand.choices(primitives_keys, weights=sampling_probabilities, k=length)
+    for name in names:
         entry = primitives_dict[name]
         params = [random_terminal(N, kind, rand) for kind in entry["params"]]
         program.append((name, params))
