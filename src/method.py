@@ -4,6 +4,7 @@ from crossover import *
 from mutation import *
 from full_binary_domain import FullBinaryDomain
 from algorithm import random_search, simulated_annealing, evolutionary_algorithm
+from src.cellular.support import compute_all_possible_neighborhoods, create_neighbors_topology_factory, weights_matrix_for_morans_I
 from walsh_transform import WalshTransform
 
 
@@ -67,8 +68,12 @@ def truth_tables_ea(
         n_bits: int,
         pop_size: int,
         n_iter: int,
-        tournament_size: int,
         seed: int,
+        pressure: int,
+        torus_dim: int,
+        radius: int,
+        pop_shape: tuple[int, ...],
+        cmp_rate: float,
         verbose: bool = False
 ):
     rng = np.random.default_rng(seed)
@@ -79,7 +84,6 @@ def truth_tables_ea(
 
     generate = lambda: generate_random_balanced_binary_vector(domain.space_cardinality(), rng)
     evaluate = lambda x: walsh.granular_non_linearity(walsh.apply(x)[0])
-    select = lambda x, y: tournament(x, y, tournament_size, rand)
     mate = lambda x, y: position_based_crossover(x, y, rng)
     mutate = lambda x: consecutive_swap_mutation(x, 1, 5, rng)
 
@@ -88,7 +92,6 @@ def truth_tables_ea(
         n_iter=n_iter,
         generate=generate,
         evaluate=evaluate,
-        select=select,
         mate=mate,
         mutate=mutate,
         rng=rng,
@@ -97,7 +100,13 @@ def truth_tables_ea(
         cx_rate=0.5,
         mut_rate=0.5,
         mutually_exclusive=True,
-        plateau_iter=1000000
+        plateau_iter=1000000,
+        # Cellular GA parameters
+        pressure=pressure,
+        torus_dim=torus_dim,
+        radius=radius,
+        pop_shape=pop_shape,
+        cmp_rate=cmp_rate,
     )
 
     return best_solution, best_score
@@ -179,11 +188,15 @@ def programs_ea(
         pop_size: int,
         warm_up: int,
         n_iter: int,
-        tournament_size: int,
         seed: int,
         min_length: int,
         max_length: int,
         sampling_probabilities: list[float],
+        pressure: int,
+        torus_dim: int,
+        radius: int,
+        pop_shape: tuple[int, ...],
+        cmp_rate: float,
         verbose: bool = False,
 ):
     rng = np.random.default_rng(seed)
@@ -193,11 +206,10 @@ def programs_ea(
     walsh = WalshTransform(n_bits)
 
     base_truth_table = generate_alternate_balanced_binary_vector(domain.space_cardinality())
-    base_truth_table, _ = truth_tables_ea(n_bits, pop_size, warm_up, tournament_size, seed, verbose=False)
+    base_truth_table, _ = truth_tables_ea(n_bits, pop_size, warm_up, seed, torus_dim=torus_dim, radius=radius, pop_shape=pop_shape, pressure=pressure, verbose=False)
 
     generate = lambda: random_program(domain.space_cardinality(), sampling_probabilities, min_length, max_length, rng, rand)
     evaluate = lambda x: walsh.granular_non_linearity(walsh.apply(execute_program(x, base_truth_table))[0])
-    select = lambda x, y: tournament(x, y, tournament_size, rand)
     mate = lambda x, y: homologous_crossover(x, y, min_length, max_length, rand)
     mutate = lambda x: mutate_program(x, domain.space_cardinality(), sampling_probabilities, min_length, max_length, rand)
 
@@ -206,7 +218,6 @@ def programs_ea(
         n_iter=n_iter - warm_up,
         generate=generate,
         evaluate=evaluate,
-        select=select,
         mate=mate,
         mutate=mutate,
         rng=rng,
@@ -215,7 +226,13 @@ def programs_ea(
         cx_rate=0.5,
         mut_rate=0.5,
         mutually_exclusive=True,
-        plateau_iter=1000000
+        plateau_iter=1000000,
+        # Cellular GA parameters
+        pressure=pressure,
+        torus_dim=torus_dim,
+        radius=radius,
+        pop_shape=pop_shape,
+        cmp_rate=cmp_rate,
     )
 
     return best_solution, best_score

@@ -4,14 +4,24 @@ import numpy as np
 import random
 from prettytable import PrettyTable
 from collections.abc import Callable
+from typing import Any
+
+from cellular.factory.NeighborsTopologyFactory import NeighborsTopologyFactory
+from cellular.support import compute_all_possible_neighborhoods, create_neighbors_topology_factory, simple_selection_process, weights_matrix_for_morans_I
+
+
+class Individual:
+    def __init__(self, genome: Any, fitness: float = -np.inf):
+        self.genome = genome
+        self.fitness = fitness
 
 
 def random_search(
         n_iter: int,
-        generate: Callable[[], any],
-        evaluate: Callable[[any], float],
+        generate: Callable[[], Any],
+        evaluate: Callable[[Any], float],
         verbose: bool = False
-) -> tuple[any, float]:
+) -> tuple[Any, float]:
     """
     Random search metaheuristic.
     """
@@ -34,14 +44,14 @@ def random_search(
 
 def simulated_annealing(
         n_iter: int,
-        generate: Callable[[], any],
-        evaluate: Callable[[any], float],
-        mutate: Callable[[any], any],
+        generate: Callable[[], Any],
+        evaluate: Callable[[Any], float],
+        mutate: Callable[[Any], Any],
         rand: random.Random,
         T0: float = 1.0,
         alpha: float = 0.99,
         verbose: bool = False
-) -> tuple[any, float]:
+) -> tuple[Any, float]:
     """
     Simulated Annealing.
     """
@@ -72,85 +82,96 @@ def simulated_annealing(
 def evolutionary_algorithm(
         pop_size: int,
         n_iter: int,
-        generate: Callable[[], any],
-        evaluate: Callable[[any], float],
-        select: Callable[[list[any], list[float]], any],
-        mate: Callable[[any, any], any],
-        mutate: Callable[[any], any],
+        generate: Callable[[], Any],
+        evaluate: Callable[[Any], float],
+        mate: Callable[[Any, Any], Any],
+        mutate: Callable[[Any], Any],
         rng: np.random.Generator,
         rand: random.Random,
         cx_rate: float = 0.6,
         mut_rate: float = 0.2,
         verbose: bool = False,
         plateau_iter: int = 1000000,
-        mutually_exclusive: bool = False
-) -> tuple[any, float]:
+        mutually_exclusive: bool = False,
+        # Cellular GA parameters
+        pressure: int = 2,
+        torus_dim: int = 0,
+        radius: int = 0,
+        pop_shape: tuple[int, ...] = (),
+        cmp_rate: float = 0.0,
+) -> tuple[Any, float]:
     """
     Evolutionary algorithm with elitism, single-child crossover, and mutation.
     """
-    # Initialize population
-    population = [generate() for _ in range(pop_size)]
-    scores = [evaluate(ind) for ind in population]
+    
+    is_cellular_selection = torus_dim != 0
+    neighbors_topology_factory = create_neighbors_topology_factory(pop_size=pop_size, pop_shape=pop_shape, torus_dim=torus_dim, radius=radius, pressure=pressure)
 
-    best_idx = int(np.argmax(scores))
-    best, best_score = population[best_idx], scores[best_idx]
+    all_possible_coordinates, all_neighborhoods_indices = compute_all_possible_neighborhoods(pop_size=pop_size, pop_shape=pop_shape, is_cellular_selection=is_cellular_selection, neighbors_topology_factory=neighbors_topology_factory)
+    weights_matrix_moran = weights_matrix_for_morans_I(pop_size=pop_size, is_cellular_selection=is_cellular_selection, all_possible_coordinates=all_possible_coordinates, all_neighborhoods_indices=all_neighborhoods_indices)
+    
+    # Initialize population
+    temp_pop = [generate() for _ in range(pop_size)]
+    population: list[Individual] = [Individual(ind, evaluate(ind)) for ind in temp_pop]
+
+    best_idx = int(np.argmax([ind.fitness for ind in population]))
+    best, best_score = population[best_idx], population[best_idx].fitness
 
     count_plateau = 0
 
     for curr_iter in range(n_iter - 1):
-        # --- Selection ---
+        indexed_population = [(i, population[i]) for i in range(pop_size)]
+        neighbors_topology = neighbors_topology_factory.create(indexed_population, clone=False)
+        current_coordinate_index = 0
+
+        new_population: list[Individual] = []
+
         if count_plateau >= plateau_iter:
-            mating_pool = [generate() for _ in range(pop_size - 1)]
-            mating_pool.append(best)
-            rand.shuffle(mating_pool)
+            temp_pop = [generate() for _ in range(pop_size - 1)]
+            new_population = [Individual(ind, evaluate(ind)) for ind in temp_pop]
+            new_population.append(best)
+            rand.shuffle(new_population)
             count_plateau = 0
         else:
-            mating_pool = [select(population, scores) for _ in range(pop_size)]
+            while len(new_population) < pop_size:
+                # --- Selection ---
+                current_coordinate = all_possible_coordinates[current_coordinate_index]
+                p1, p2 = simple_selection_process(is_cellular_selection=is_cellular_selection, competitor_rate=cmp_rate, neighbors_topology=neighbors_topology, all_neighborhoods_indices=all_neighborhoods_indices, coordinate=current_coordinate)
+                is_changed = False
+                p1_fitness = p1.fitness
+                # --- Variation ---
+                if not mutually_exclusive:
+                    # crossover
+                    if rand.random() < cx_rate:
+                        child = mate(p1.genome, p2.genome)
+                        is_changed = True
+                    else:
+                        child = p1.genome
 
-        is_changed = [False for _ in range(pop_size)]
-        new_population = []
-
-        # --- Variation ---
-        for j, parent in enumerate(mating_pool, 0):
-            # choose random mate
-            partner = mating_pool[rng.integers(pop_size)]
-
-            if not mutually_exclusive:
-                # crossover
-                if rand.random() < cx_rate:
-                    is_changed[j] = True
-                    child = mate(parent, partner)
+                    # mutation
+                    if rand.random() < mut_rate:
+                        child = mutate(child)
+                        is_changed = True
                 else:
-                    child = parent
+                    is_changed = True
+                    # crossover
+                    if rand.random() < cx_rate / (cx_rate + mut_rate):
+                        child = mate(p1.genome, p2.genome)
+                    # mutation
+                    else:
+                        child = mutate(p1.genome)
 
-                # mutation
-                if rand.random() < mut_rate:
-                    is_changed[j] = True
-                    child = mutate(child)
-            else:
-                is_changed[j] = True
-                # crossover
-                if rand.random() < cx_rate / (cx_rate + mut_rate):
-                    child = mate(parent, partner)
-                # mutation
-                else:
-                    child = mutate(parent)
-
-            new_population.append(child)
-
-        # --- Evaluate new population ---
-        scores = [evaluate(ind) if is_changed[i] else scores[i] for i, ind in enumerate(new_population, 0)]
+                new_population.append(Individual(child, evaluate(child) if is_changed else p1_fitness))
+                current_coordinate_index += 1
 
         # --- Elitism ---
         # Keep best-so-far if not already in new population
-        worst_idx = int(np.argmin(scores))
-        if best_score > scores[worst_idx]:
+        worst_idx = int(np.argmin([ind.fitness for ind in new_population]))
+        if best_score > new_population[worst_idx].fitness:
             new_population[worst_idx] = best
-            scores[worst_idx] = best_score
-
         # Update best
-        gen_best_idx = int(np.argmax(scores))
-        gen_best_score = scores[gen_best_idx]
+        gen_best_idx = int(np.argmax([ind.fitness for ind in new_population]))
+        gen_best_score = new_population[gen_best_idx].fitness
         if gen_best_score > best_score:
             best, best_score = new_population[gen_best_idx], gen_best_score
             count_plateau = 0
@@ -159,7 +180,7 @@ def evolutionary_algorithm(
 
         if verbose:
             table = PrettyTable(["Iteration", "Median Non-Linearity", "Current Non-Linearity", "Best Non-Linearity"])
-            table.add_row([str(curr_iter), str(statistics.median(scores)), str(scores[gen_best_idx]), str(best_score)])
+            table.add_row([str(curr_iter), str(statistics.median([ind.fitness for ind in new_population])), str(new_population[gen_best_idx].fitness), str(best_score)])
             print(table)
 
         # Advance population
