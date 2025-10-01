@@ -22,14 +22,125 @@ def generate_random_balanced_binary_vector(size: int, rng: np.random.Generator) 
     return arr
 
 
+def uniform_initial_population(size: int, pop_size: int, rng: np.random.Generator, rand: random.Random) -> list[np.ndarray]:
+    """
+    Uniform random init: just sample uniformly at random from the space.
+    Generates balanced candidates by random shuffle of base balanced vector.
+    """
+    base = np.zeros(size, dtype=np.int8)
+    mask = np.arange(size) % 2 == 0
+    base[mask] = 1
+    population = []
+    for _ in range(pop_size):
+        individual = base.copy()
+        rng.shuffle(individual)
+        population.append(individual)
+    return population
+
+
+def greedy_maxmin_initial_population(size: int, pop_size: int, rng: np.random.Generator, rand: random.Random) -> list[np.ndarray]:
+    """
+    Greedy max-min diversity init: start from random, then iteratively add the
+    candidate that maximizes min Hamming distance to current set.
+    Generates balanced candidates by random shuffle of base balanced vector.
+    """
+    base = np.zeros(size, dtype=np.int8)
+    base[:size//2] = 1
+    pool_size = pop_size * 10
+    pool = []
+    for _ in range(pool_size):
+        tmp = base.copy()
+        rng.shuffle(tmp)
+        pool.append(tmp)
+    # pick one random first
+    selected = [pool.pop(rng.integers(len(pool)))]
+    while len(selected) < pop_size:
+        best_idx = None
+        best_min = -1
+        for i, cand in enumerate(pool):
+            dists = [np.sum(cand != s) for s in selected]
+            min_dist = min(dists)
+            if min_dist > best_min:
+                best_min = min_dist
+                best_idx = i
+        selected.append(pool.pop(best_idx))
+    return selected
+
+
 # ===========================================================================
-# Fixed Truth Tables
+# Fixed Known Truth Tables
 # ===========================================================================
 
-def generate_alternate_balanced_binary_vector(size: int) -> np.ndarray:
+def generate_alternate_balanced_binary_vector_one_zero(size: int) -> np.ndarray:
     arr = np.zeros(size, dtype=np.int8)
     mask = np.arange(size) % 2 == 0
     arr[mask] = 1
+    return arr
+
+def generate_alternate_balanced_binary_vector_zero_one(size: int) -> np.ndarray:
+    arr = np.zeros(size, dtype=np.int8)
+    mask = np.arange(size) % 2 == 1
+    arr[mask] = 1
+    return arr
+
+
+def generate_half_ones_half_zeros_binary_vector(size: int) -> np.ndarray:
+    arr = np.zeros(size, dtype=np.int8)
+    half_size = size // 2
+    arr[:half_size] = 1
+    return arr
+
+
+def generate_half_zeros_half_ones_binary_vector(size: int) -> np.ndarray:
+    arr = np.zeros(size, dtype=np.int8)
+    half_size = size // 2
+    arr[half_size:] = 1
+    return arr
+
+
+def generate_quarter_ones_half_zeros_quarter_ones_binary_vector(size: int) -> np.ndarray:
+    arr = np.zeros(size, dtype=np.int8)
+    quarter_size = size // 4
+    arr[:quarter_size] = 1
+    arr[3*quarter_size:] = 1
+    return arr
+
+def generate_quarter_zeros_half_ones_quarter_zeros_binary_vector(size: int) -> np.ndarray:
+    arr = np.zeros(size, dtype=np.int8)
+    quarter_size = size // 4
+    arr[quarter_size:3*quarter_size] = 1
+    return arr
+
+
+def generate_quarter_ones_quarter_zeros_half_ones_binary_vector(size: int) -> np.ndarray:
+    arr = np.zeros(size, dtype=np.int8)
+    quarter_size = size // 4
+    arr[:quarter_size] = 1
+    arr[2*quarter_size:3*quarter_size] = 1
+    return arr
+
+
+def generate_quarter_zeros_quarter_ones_half_zeros_binary_vector(size: int) -> np.ndarray:
+    arr = np.ones(size, dtype=np.int8)
+    quarter_size = size // 4
+    arr[:quarter_size] = 0
+    arr[2*quarter_size:3*quarter_size] = 0
+    return arr
+
+
+def generate_eighths_alternating_binary_vector(size: int) -> np.ndarray:
+    arr = np.zeros(size, dtype=np.int8)
+    eighth_size = size // 8
+    for i in range(0, 8, 2):
+        arr[i*eighth_size:(i+1)*eighth_size] = 1
+    return arr
+
+
+def generate_eighths_alternating_binary_vector_starting_with_zero(size: int) -> np.ndarray:
+    arr = np.zeros(size, dtype=np.int8)
+    eighth_size = size // 8
+    for i in range(1, 8, 2):
+        arr[i*eighth_size:(i+1)*eighth_size] = 1
     return arr
 
 
@@ -155,18 +266,18 @@ def primitives():
            "func": reverse,
            "params": ["interval"]
         },
-        "5-scramble": {
-           "func": scramble,
-           "params": ["interval", "seed"]
-        },
-        "6-rotate": {
+        "5-rotate": {
            "func": rotate,
            "params": ["interval", "int"]
         },
-        "7-shift_1s": {
+        "6-shift_1s": {
            "func": shift_1s,
            "params": ["interval"]
-        }
+        },
+        "7-scramble": {
+           "func": scramble,
+           "params": ["interval", "seed"]
+        },
     }
 
     return primitives_dict
@@ -191,6 +302,11 @@ def random_program(N: int, sampling_probabilities: list[float], min_length: int,
         params = [random_terminal(N, kind, rand) for kind in entry["params"]]
         program.append((name, params))
     return program
+
+
+def initialize_population_programs(pop_size: int, N: int, sampling_probabilities: list[float], min_length: int, max_length: int, rng: np.random.Generator, rand: random.Random) -> list[list[tuple[str, list]]]:
+    """Initialize a population of random permutation programs."""
+    return [random_program(N, sampling_probabilities, min_length, max_length, rng, rand) for _ in range(pop_size)]
 
 
 def execute_program(program: list[tuple[str, list]], L: np.ndarray) -> np.ndarray:

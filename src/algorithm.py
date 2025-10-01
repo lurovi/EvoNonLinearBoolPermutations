@@ -11,7 +11,7 @@ from cellular.support import compute_all_possible_neighborhoods, create_neighbor
 
 
 class Individual:
-    def __init__(self, genome: Any, fitness: float = -np.inf):
+    def __init__(self, genome: Any, fitness: float):
         self.genome = genome
         self.fitness = fitness
 
@@ -82,7 +82,7 @@ def simulated_annealing(
 def evolutionary_algorithm(
         pop_size: int,
         n_iter: int,
-        generate: Callable[[], Any],
+        initialize: Callable[[int], list[Any]],
         evaluate: Callable[[Any], float],
         mate: Callable[[Any, Any], Any],
         mutate: Callable[[Any], Any],
@@ -111,8 +111,8 @@ def evolutionary_algorithm(
     weights_matrix_moran = weights_matrix_for_morans_I(pop_size=pop_size, is_cellular_selection=is_cellular_selection, all_possible_coordinates=all_possible_coordinates, all_neighborhoods_indices=all_neighborhoods_indices)
     
     # Initialize population
-    temp_pop = [generate() for _ in range(pop_size)]
-    population: list[Individual] = [Individual(ind, evaluate(ind)) for ind in temp_pop]
+    temp_pop = initialize(pop_size)
+    population = [Individual(ind, evaluate(ind)) for ind in temp_pop]
 
     best_idx = int(np.argmax([ind.fitness for ind in population]))
     best, best_score = population[best_idx], population[best_idx].fitness
@@ -124,10 +124,10 @@ def evolutionary_algorithm(
         neighbors_topology = neighbors_topology_factory.create(indexed_population, clone=False)
         current_coordinate_index = 0
 
-        new_population: list[Individual] = []
+        new_population = []
 
         if count_plateau >= plateau_iter:
-            temp_pop = [generate() for _ in range(pop_size - 1)]
+            temp_pop = initialize(pop_size - 1)
             new_population = [Individual(ind, evaluate(ind)) for ind in temp_pop]
             new_population.append(best)
             rand.shuffle(new_population)

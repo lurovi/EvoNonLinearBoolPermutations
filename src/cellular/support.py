@@ -117,14 +117,14 @@ def simple_selection_process(
             sampled_competitors: list = [competitor for competitor in competitors if random.random() < competitor_rate]
         while len(sampled_competitors) < 2:
             sampled_competitors.append(competitors[int(random.random()*len(competitors))])
-        sampled_competitors.sort(key=lambda x: x[1].fitness, reverse=False)
+        sampled_competitors.sort(key=lambda x: -x[1].fitness, reverse=False)
         first = sampled_competitors[0][1]
         second = sampled_competitors[1][1]
     else:
         first_tournament: list = neighbors_topology.neighborhood(coordinate, include_current_point=True, clone=False, distinct_coordinates=False) # type: ignore
-        first_tournament.sort(key=lambda x: x[1].fitness, reverse=False)
+        first_tournament.sort(key=lambda x: -x[1].fitness, reverse=False)
         second_tournament: list = neighbors_topology.neighborhood(coordinate, include_current_point=True, clone=False, distinct_coordinates=False) # type: ignore
-        second_tournament.sort(key=lambda x: x[1].fitness, reverse=False) 
+        second_tournament.sort(key=lambda x: -x[1].fitness, reverse=False) 
         first = first_tournament[0][1]
         second = second_tournament[0][1]
 

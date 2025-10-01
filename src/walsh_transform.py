@@ -1,5 +1,6 @@
 import numpy as np
 from full_binary_domain import FullBinaryDomain
+from generator import generate_alternate_balanced_binary_vector_one_zero, generate_alternate_balanced_binary_vector_zero_one, generate_half_ones_half_zeros_binary_vector, generate_half_zeros_half_ones_binary_vector, generate_quarter_ones_half_zeros_quarter_ones_binary_vector, generate_quarter_zeros_half_ones_quarter_zeros_binary_vector, generate_quarter_ones_quarter_zeros_half_ones_binary_vector, generate_quarter_zeros_quarter_ones_half_zeros_binary_vector, generate_eighths_alternating_binary_vector, generate_eighths_alternating_binary_vector_starting_with_zero
 
 
 class WalshTransform:
@@ -9,6 +10,31 @@ class WalshTransform:
         self.__domain: FullBinaryDomain = FullBinaryDomain(n_bits)
         self.__number_of_ones_for_each_number: np.ndarray = np.array([bin(i)[2:].count('1') for i in range(self.__domain.space_cardinality())])
         self.__boolean_mask_number_of_ones_for_each_number: dict[int, np.ndarray] = {t: self.__number_of_ones_for_each_number <= t for t in range(self.__domain.number_of_bits() + 1)}
+        self.__compute_non_linearity_on_fixed_known_truth_tables()
+
+    def __compute_non_linearity_on_fixed_known_truth_tables(self) -> None:
+        self.__fixed_known_truth_tables = []
+
+        tt1 = generate_alternate_balanced_binary_vector_one_zero(self.__domain.space_cardinality())
+        tt2 = generate_alternate_balanced_binary_vector_zero_one(self.__domain.space_cardinality())
+        tt3 = generate_half_ones_half_zeros_binary_vector(self.__domain.space_cardinality())
+        tt4 = generate_half_zeros_half_ones_binary_vector(self.__domain.space_cardinality())
+        tt5 = generate_quarter_ones_half_zeros_quarter_ones_binary_vector(self.__domain.space_cardinality())
+        tt6 = generate_quarter_zeros_half_ones_quarter_zeros_binary_vector(self.__domain.space_cardinality())
+        tt7 = generate_quarter_ones_quarter_zeros_half_ones_binary_vector(self.__domain.space_cardinality())
+        tt8 = generate_quarter_zeros_quarter_ones_half_zeros_binary_vector(self.__domain.space_cardinality())
+        tt9 = generate_eighths_alternating_binary_vector(self.__domain.space_cardinality())
+        tt10 = generate_eighths_alternating_binary_vector_starting_with_zero(self.__domain.space_cardinality())
+
+        for i, tt in enumerate([tt1, tt2, tt3, tt4, tt5, tt6, tt7, tt8, tt9, tt10]):
+            spectrum, _ = self.apply(tt)
+            nl = self.granular_non_linearity(spectrum)
+            self.__fixed_known_truth_tables.append((tt, spectrum, nl))
+
+        self.__best_fixed_known_truth_table = max(self.__fixed_known_truth_tables, key=lambda x: x[2])[0]
+
+    def best_fixed_known_truth_table(self) -> np.ndarray:
+        return self.__best_fixed_known_truth_table
 
     def domain(self) -> FullBinaryDomain:
         return self.__domain
