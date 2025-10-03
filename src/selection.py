@@ -1,8 +1,8 @@
 import random
+from generator import Individual
 
 
-def tournament[T](population: list[T], scores: list[float], tournament_size: int, rand: random.Random) -> T:
-    paired = list(zip(population, scores))
-    tour = rand.choices(paired, k=tournament_size)
-    best = max(tour, key=lambda x: x[1])
-    return best[0]
+def tournament(population: list[Individual], tournament_size: int, rand: random.Random) -> Individual:
+    tour = rand.choices(population, k=tournament_size)
+    best = max(tour, key=lambda x: x.fitness)
+    return best

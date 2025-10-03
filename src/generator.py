@@ -1,5 +1,14 @@
 import random
 import numpy as np
+from typing import Any
+
+
+class Individual:
+    def __init__(self, genome: Any, fitness: float, spectrum: np.ndarray, spectral_radius: int):
+        self.genome = genome
+        self.fitness = fitness
+        self.spectrum = spectrum
+        self.spectral_radius = spectral_radius
 
 
 # ===========================================================================

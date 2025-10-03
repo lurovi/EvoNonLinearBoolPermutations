@@ -41,7 +41,8 @@ def order_crossover(parent1: np.ndarray, parent2: np.ndarray, rng: np.random.Gen
 
     child1 = fill(child1, parent2, cx2).astype(np.int8)
     child2 = fill(child2, parent1, cx2).astype(np.int8)
-    return child1, child2
+    child = child1 if rng.random() < 0.5 else child2
+    return child
 
 
 def uniform_crossover_with_repair(parent1: np.ndarray, parent2: np.ndarray, rng: np.random.Generator) -> np.ndarray:
@@ -89,7 +90,7 @@ def position_based_crossover(parent1: np.ndarray, parent2: np.ndarray, rng: np.r
     return child.astype(np.int8)
 
 
-def cycle_crossover_binary(parent1: np.ndarray, parent2: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def cycle_crossover_binary(parent1: np.ndarray, parent2: np.ndarray, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
     """
     Cycle Crossover (CX) adapted for binary strings with duplicates.
     Ensures exact preservation of 0/1 counts.
@@ -154,7 +155,8 @@ def cycle_crossover_binary(parent1: np.ndarray, parent2: np.ndarray) -> tuple[np
     # ---- Detokenize: tokens < c0 -> 0, else 1
     child1 = (child1_tokens >= c0).astype(np.int8)
     child2 = (child2_tokens >= c0).astype(np.int8)
-    return child1, child2
+    child = child1 if rng.random() < 0.5 else child2
+    return child
 
 
 def pmx_binary(parent1: np.ndarray, parent2: np.ndarray, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
@@ -219,7 +221,8 @@ def pmx_binary(parent1: np.ndarray, parent2: np.ndarray, rng: np.random.Generato
     # ---- Detokenize: tokens < c0 -> 0, else 1
     child1 = (child1_tokens >= c0).astype(np.int8)
     child2 = (child2_tokens >= c0).astype(np.int8)
-    return child1, child2
+    child = child1 if rng.random() < 0.5 else child2
+    return child
 
 
 # ===========================================================================

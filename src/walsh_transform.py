@@ -62,6 +62,24 @@ class WalshTransform:
         else:
             return max_resiliency_found_so_far
 
+    def correlation_immunity(self, spectrum: np.ndarray, tol: float = 1e-9) -> int:
+        size = 1 << self.__domain.number_of_bits()
+        assert spectrum.shape[0] == size, "Walsh spectrum length mismatch"
+
+        max_order = 0
+        # For each possible order
+        for m in range(1, self.__domain.number_of_bits() + 1):
+            ok = True
+            for idx in range(1, size):  # exclude index 0
+                if bin(idx).count("1") <= m and abs(spectrum[idx]) > tol:
+                    ok = False
+                    break
+            if ok:
+                max_order = m
+            else:
+                break
+        return max_order
+
     def non_linearity(self, spectrum: np.ndarray) -> float:
         x: np.ndarray = np.absolute(spectrum)
         m: float = float(np.max(x))

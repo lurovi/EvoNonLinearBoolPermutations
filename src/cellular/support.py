@@ -1,4 +1,7 @@
 import random
+import statistics
+
+import numpy as np
 from cellular.factory.NeighborsTopologyFactory import NeighborsTopologyFactory
 from cellular.factory.TournamentTopologyFactory import TournamentTopologyFactory
 from cellular.factory.RowMajorMatrixFactory import RowMajorMatrixFactory
@@ -22,6 +25,51 @@ def zero_matrix(N: int) -> list[list[float]]:
 
 def sum_of_all_elem_in_matrix(v: list[list[float]]) -> float:
     return float(sum([sum(l) for l in v]))
+
+
+def geometric_center(vectors: list[np.ndarray]) -> np.ndarray:
+    semantic_matrix = np.stack(vectors, axis=0).astype(float)
+    return np.mean(semantic_matrix, axis=0)
+
+
+def euclidean_distance(v1: np.ndarray, v2: np.ndarray) -> float:
+    return float(np.linalg.norm(v1 - v2))
+
+
+def dot_product(v1: np.ndarray, v2: np.ndarray) -> float:
+    return float(np.dot(v1, v2))
+
+
+def self_dot_product(v1: np.ndarray) -> float:
+    return float(np.dot(v1, v1))
+
+
+def global_moran_I(vectors: list[np.ndarray], w: list[list[float]]) -> float:
+    N: int = len(vectors)
+    W: float = sum_of_all_elem_in_matrix(w)
+    gc: np.ndarray = geometric_center(vectors)
+
+    numerator: float = sum([ sum([w[i][j] * dot_product(vectors[i] - gc, vectors[j] - gc) for j in range(N)]) for i in range(N)])
+    
+    denominator: float = sum([self_dot_product(vectors[i] - gc) for i in range(N)])
+    denominator = denominator if denominator != 0 else 1e-12
+
+    return ( float(N) / W ) * (numerator / denominator)
+
+
+def compute_euclidean_diversity_all_distinct_distances(vectors: list[np.ndarray], measure: str = 'median') -> float:
+    distances: list[float] = []
+
+    for i in range(len(vectors) - 1):
+        for j in range(i + 1, len(vectors)):
+            distances.append(euclidean_distance(vectors[i], vectors[j]))
+
+    if measure == 'mean':
+        return statistics.mean(distances)
+    elif measure == 'median':
+        return statistics.median(distances)
+    else:
+        raise AttributeError(f'Invalid measure {measure}.')
 
 
 def create_neighbors_topology_factory(
@@ -103,7 +151,8 @@ def simple_selection_process(
         competitor_rate: float,
         neighbors_topology: NeighborsTopology,
         coordinate: tuple[int, ...],
-        all_neighborhoods_indices: dict[tuple[int, ...], list[tuple[int, ...]]]
+        all_neighborhoods_indices: dict[tuple[int, ...], list[tuple[int, ...]]],
+        rand: random.Random
 ) -> tuple:
     # A COMPETITOR IS A TUPLE WHERE THE FIRST ELEMENT IS AN INDEX (THE POSITION IN THE POPULATION),
     # THE SECOND ELEMENT IS THE INDIVIDUAL ITSELF, WHICH HAS AN ATTRIBUTE FITNESS THAT MUST BE MINIMIZED
@@ -114,9 +163,9 @@ def simple_selection_process(
         if competitor_rate == 1.0:
             sampled_competitors: list = competitors
         else:
-            sampled_competitors: list = [competitor for competitor in competitors if random.random() < competitor_rate]
+            sampled_competitors: list = [competitor for competitor in competitors if rand.random() < competitor_rate]
         while len(sampled_competitors) < 2:
-            sampled_competitors.append(competitors[int(random.random()*len(competitors))])
+            sampled_competitors.append(competitors[int(rand.random()*len(competitors))])
         sampled_competitors.sort(key=lambda x: -x[1].fitness, reverse=False)
         first = sampled_competitors[0][1]
         second = sampled_competitors[1][1]
