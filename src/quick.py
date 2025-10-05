@@ -3,7 +3,7 @@ import time
 from parallel import process_pool_parallelize
 import pandas as pd
 import traceback
-from algorithm import random_search, simulated_annealing, evolutionary_algorithm
+from algorithm import random_search, simulated_annealing
 from crossover import *
 from mutation import *
 from selection import *
@@ -204,8 +204,12 @@ if __name__ == "__main__":
     # print(f"Best program: {best_program.genome}")
     # print(f"Best score: {best_score}")
     # print(f"Time taken: {(end_time - start_time) / 60} minutes")
+    
     print('================================== MASSIVE EXP ================================')
-    n_bits = [6, 7, 8, 9, 10, 11, 12, 13, 14]
+    #n_bits = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+    #n_bits = [5, 6, 7, 8, 9]
+    #n_bits = [10, 11, 12]
+    n_bits = [13, 14, 15, 16]
     seed_indexes = list(range(1, 30 + 1))
 
     pop_size = 100

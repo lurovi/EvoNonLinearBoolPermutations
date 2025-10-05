@@ -3,7 +3,7 @@ import random
 from collections.abc import Callable
 from generator import execute_program, initialize_population_programs, primitives, random_program, random_terminal, clone_program
 from full_binary_domain import FullBinaryDomain
-from algorithm import evolutionary_algorithm, simulated_annealing, random_search
+from algorithm import evolutionary_algorithm_programs, simulated_annealing, random_search
 from crossover import homologous_crossover
 from walsh_transform import WalshTransform
 
@@ -219,7 +219,7 @@ def programs_evolutionary_algorithm_enhancing_balanced_truth_table(
     mate = lambda x, y: homologous_crossover(x, y, min_length, max_length, rand)
     mutate = lambda x: mutate_program(x, domain.space_cardinality(), sampling_probabilities, min_length, max_length, rand)
 
-    best_solution, _ = evolutionary_algorithm(
+    best_solution, _ = evolutionary_algorithm_programs(
         pop_size=pop_size,
         n_iter=n_iter,
         initialize=initialize,

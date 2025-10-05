@@ -11,6 +11,16 @@ class Individual:
         self.spectral_radius = spectral_radius
 
 
+class IndividualProgram:
+    def __init__(self, program: list[tuple[str, list]], base_genome: Any, genome: Any, fitness: float, spectrum: np.ndarray, spectral_radius: int):
+        self.program = program
+        self.genome = genome
+        self.base_genome = base_genome
+        self.fitness = fitness
+        self.spectrum = spectrum
+        self.spectral_radius = spectral_radius
+
+
 # ===========================================================================
 # Truth Table Representations
 # ===========================================================================

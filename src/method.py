@@ -4,7 +4,7 @@ from crossover import *
 from mutation import *
 from distance import *
 from full_binary_domain import FullBinaryDomain
-from algorithm import random_search, simulated_annealing, evolutionary_algorithm
+from algorithm import random_search, simulated_annealing, evolutionary_algorithm_truth_tables, evolutionary_algorithm_programs
 from cellular.support import compute_all_possible_neighborhoods, create_neighbors_topology_factory, weights_matrix_for_morans_I
 from walsh_transform import WalshTransform
 
@@ -165,7 +165,7 @@ def truth_tables_ea(
     #     rand=rand,
     # )
 
-    best_solution, best_score, history = evolutionary_algorithm(
+    best_solution, best_score, history = evolutionary_algorithm_truth_tables(
         walsh=walsh,
         pop_size=pop_size,
         n_iter=n_iter,
@@ -315,7 +315,7 @@ def programs_ea(
     mate = lambda x, y: homologous_crossover(x, y, min_length, max_length, rand)
     mutate = lambda x: mutate_program(x, domain.space_cardinality(), sampling_probabilities, min_length, max_length, rand)
 
-    best_solution, best_score = evolutionary_algorithm(
+    best_solution, best_score = evolutionary_algorithm_programs(
         pop_size=pop_size,
         n_iter=n_iter,
         initialize=initialize,
