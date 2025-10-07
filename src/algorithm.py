@@ -153,7 +153,7 @@ def evolutionary_algorithm_truth_tables(
     #history['diversity_median'] = [compute_euclidean_diversity_all_distinct_distances([ind.spectrum for ind in population], measure='median')]
 
     if isinstance(population[0].genome, np.ndarray) and not check_all_truth_tables_are_balanced([ind.genome for ind in population]):
-        raise ValueError(f"Not all truth tables are balanced. Gen {"Initialization"}.")
+        raise ValueError(f"Not all truth tables are balanced. Gen {'Initialization'}.")
 
     for curr_iter in range(1, n_iter):
         indexed_population = [(i, population[i]) for i in range(pop_size)]
@@ -361,7 +361,7 @@ def evolutionary_algorithm_programs(
     #history['diversity_median'] = [compute_euclidean_diversity_all_distinct_distances([ind.spectrum for ind in population], measure='median')]
 
     if isinstance(population[0].genome, np.ndarray) and not check_all_truth_tables_are_balanced([ind.genome for ind in population]):
-        raise ValueError(f"Not all truth tables are balanced. Gen {"Initialization"}.")
+        raise ValueError(f"Not all truth tables are balanced. Gen {'Initialization'}.")
 
     for curr_iter in range(1, n_iter):
         indexed_population = [(i, population[i]) for i in range(pop_size)]
