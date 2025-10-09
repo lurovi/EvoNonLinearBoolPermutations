@@ -12,15 +12,17 @@ T = TypeVar('T')
 class TournamentTopology(NeighborsTopology):
     def __init__(self,
                  collection: MutableSequence[T],
+                 rand: random.Random,
                  clone: bool = False,
                  pressure: int = 3
                  ) -> None:
         super().__init__()
         if pressure < 1:
             raise ValueError(f'Pressure must be at least 1, found {pressure} instead.')
-        self.__collection: MutableSequence[T] = deepcopy(collection) if clone else collection
+        self.__collection: MutableSequence = deepcopy(collection) if clone else collection
         self.__pressure: int = pressure
         self.__size: int = len(self.__collection)
+        self.__rand: random.Random = rand
 
     def __hash__(self) -> int:
         molt: int = 31
@@ -46,15 +48,15 @@ class TournamentTopology(NeighborsTopology):
     def __len__(self) -> int:
         return self.__size
 
-    def get_whole_collection(self, clone: bool = False) -> MutableSequence[T]:
+    def get_whole_collection(self, clone: bool = False) -> MutableSequence:
         return deepcopy(self.__collection) if clone else self.__collection
     
-    def get(self, indices: tuple[int, ...], clone: bool = False) -> T:
+    def get(self, indices: tuple[int, ...], clone: bool = False) -> Any:
         if len(indices) != 1:
             raise ValueError(f'The length of indices must be 1, found {len(indices)} instead.')
         i: int = indices[0]
         self.__check_index(i)
-        val: T = self.__collection[i]
+        val: Any = self.__collection[i]
         return deepcopy(val) if clone else val
     
     def set(self, indices: tuple[int, ...], val: T, clone: bool = False) -> T:
@@ -63,7 +65,7 @@ class TournamentTopology(NeighborsTopology):
         i: int = indices[0]
         self.__check_index(i)
         offset: int = i
-        old_val: T = self.__collection[offset]
+        old_val: Any = self.__collection[offset]
         old_val = deepcopy(old_val) if clone else old_val
         self.__collection[offset] = val
         return old_val
@@ -74,13 +76,13 @@ class TournamentTopology(NeighborsTopology):
     def shape(self) -> tuple[int, ...]:
         return (self.__size,)
 
-    def neighborhood(self, indices: tuple[int, ...], include_current_point: bool = True, clone: bool = False, distinct_coordinates: bool = False) -> MutableSequence[T]:
-        result: MutableSequence[T] = []
+    def neighborhood(self, indices: tuple[int, ...], include_current_point: bool = True, clone: bool = False, distinct_coordinates: bool = False) -> MutableSequence:
+        result: MutableSequence = []
         already_seen_coordinates: set[tuple[int, ...]] = set()
         for _ in range(self.__pressure):        
-            new_ii: int = int(random.random()*self.size())
+            new_ii: int = int(self.__rand.random()*self.size())
             while distinct_coordinates and (new_ii,) in already_seen_coordinates:
-                new_ii = int(random.random()*self.size())
+                new_ii = int(self.__rand.random()*self.size())
             result.append(self.get((new_ii,),clone=clone))
             already_seen_coordinates.add((new_ii,))
         return result

@@ -8,7 +8,7 @@ from typing import Any
 from selection import tournament
 from walsh_transform import WalshTransform
 
-from generator import Individual, IndividualProgram, execute_program, generate_alternate_balanced_binary_vector_one_zero
+from generator import Individual, IndividualProgram, clone_program, execute_program, generate_alternate_balanced_binary_vector_one_zero
 from cellular.factory.NeighborsTopologyFactory import NeighborsTopologyFactory
 from cellular.support import compute_all_possible_neighborhoods, create_neighbors_topology_factory, global_moran_I, compute_euclidean_diversity_all_distinct_distances, one_matrix_zero_diagonal, simple_selection_process, weights_matrix_for_morans_I
 
@@ -23,7 +23,7 @@ def check_all_truth_tables_are_balanced(truth_tables: list[np.ndarray]) -> bool:
     return True
 
 
-def random_search(
+def random_search_truth_tables(
         n_iter: int,
         generate: Callable[[], Any],
         evaluate: Callable[[Any], float],
@@ -49,7 +49,66 @@ def random_search(
     return best_solution, best_score
 
 
-def simulated_annealing(
+def random_search_programs(
+        walsh: WalshTransform,
+        n_iter: int,
+        pipeline_iter_step: int,
+        init_bin_size: int,
+        generate: Callable[[], Any],
+        evaluate: Callable[[Any], float],
+        rng: np.random.Generator,
+        verbose: bool = False
+) -> tuple[Any, float]:
+    """
+    Random search metaheuristic.
+    """
+    # Initialize base truth table
+    if init_bin_size < 0:
+        raise ValueError("init_bin_size must be non-negative.")
+    if init_bin_size == 0:
+        base_truth_table = generate_alternate_balanced_binary_vector_one_zero(walsh.domain().space_cardinality())
+    else:
+        # Check if init_bin_size is a power of two
+        if (init_bin_size & (init_bin_size - 1)) != 0:
+            raise ValueError("init_bin_size must be a power of two.")
+        if walsh.domain().space_cardinality() % init_bin_size != 0:
+            raise ValueError("init_bin_size must be a divisor of walsh.domain().space_cardinality().")
+        # Generate a balanced truth table of size init_bin_size and shuffle it
+        temp_base_truth_table = generate_alternate_balanced_binary_vector_one_zero(init_bin_size)
+        rng.shuffle(temp_base_truth_table)
+        # Replicate the temp_base_truth_table to reach the desired size, which is equal to walsh.domain().space_cardinality()
+        base_truth_table = np.tile(temp_base_truth_table, walsh.domain().space_cardinality() // len(temp_base_truth_table))
+    
+    best_solution = generate()
+    genome = execute_program(best_solution, base_truth_table)
+    spectrum, _ = walsh.apply(genome)
+    best_score = evaluate(spectrum)
+    the_global_must_be_updated = True
+    global_program = []
+
+    for curr_iter in range(1, n_iter):
+        candidate = generate()
+        genome = execute_program(candidate, base_truth_table)
+        spectrum, _ = walsh.apply(genome)
+        score = evaluate(spectrum)
+        if score > best_score:
+            best_solution, best_score = candidate, score
+            the_global_must_be_updated = True
+
+        if verbose:
+            table = PrettyTable(["Iteration", "Current Non-Linearity", "Best Non-Linearity"])
+            table.add_row([str(curr_iter), str(score), str(best_score)])
+            print(table)
+            
+        if the_global_must_be_updated and (curr_iter + 1) % pipeline_iter_step == 0:
+            global_program = clone_program(global_program + best_solution)
+            base_truth_table = execute_program(best_solution, base_truth_table).copy()
+            the_global_must_be_updated = False
+
+    return best_solution, best_score
+
+
+def simulated_annealing_truth_tables(
         n_iter: int,
         generate: Callable[[], Any],
         evaluate: Callable[[Any], float],
@@ -86,6 +145,76 @@ def simulated_annealing(
     return best, best_score
 
 
+def simulated_annealing_programs(
+        walsh: WalshTransform,
+        n_iter: int,
+        pipeline_iter_step: int,
+        init_bin_size: int,
+        generate: Callable[[], Any],
+        evaluate: Callable[[Any], float],
+        mutate: Callable[[Any], Any],
+        rand: random.Random,
+        rng: np.random.Generator,
+        T0: float = 1.0,
+        alpha: float = 0.99,
+        verbose: bool = False
+) -> tuple[Any, float]:
+    """
+    Simulated Annealing.
+    """
+    # Initialize base truth table
+    if init_bin_size < 0:
+        raise ValueError("init_bin_size must be non-negative.")
+    if init_bin_size == 0:
+        base_truth_table = generate_alternate_balanced_binary_vector_one_zero(walsh.domain().space_cardinality())
+    else:
+        # Check if init_bin_size is a power of two
+        if (init_bin_size & (init_bin_size - 1)) != 0:
+            raise ValueError("init_bin_size must be a power of two.")
+        if walsh.domain().space_cardinality() % init_bin_size != 0:
+            raise ValueError("init_bin_size must be a divisor of walsh.domain().space_cardinality().")
+        # Generate a balanced truth table of size init_bin_size and shuffle it
+        temp_base_truth_table = generate_alternate_balanced_binary_vector_one_zero(init_bin_size)
+        rng.shuffle(temp_base_truth_table)
+        # Replicate the temp_base_truth_table to reach the desired size, which is equal to walsh.domain().space_cardinality()
+        base_truth_table = np.tile(temp_base_truth_table, walsh.domain().space_cardinality() // len(temp_base_truth_table))
+
+    current = generate()
+    genome = execute_program(current, base_truth_table)
+    spectrum, _ = walsh.apply(genome)
+    current_score = evaluate(spectrum)
+    the_global_must_be_updated = True
+    global_program = []
+    best, best_score = current, current_score
+    T = T0
+
+    for curr_iter in range(1, n_iter):
+        candidate = mutate(current)
+        genome = execute_program(candidate, base_truth_table)
+        spectrum, _ = walsh.apply(genome)
+        score = evaluate(spectrum)
+        delta = score - current_score
+
+        if delta > 0.0 or rand.random() < np.exp(delta / T):
+            current, current_score = candidate, score
+            if score > best_score:
+                best, best_score = candidate, score
+                the_global_must_be_updated = True
+        T *= alpha
+
+        if verbose:
+            table = PrettyTable(["Iteration", "Current Non-Linearity", "Best Non-Linearity"])
+            table.add_row([str(curr_iter), str(score), str(best_score)])
+            print(table)
+
+        if the_global_must_be_updated and (curr_iter + 1) % pipeline_iter_step == 0:
+            global_program = clone_program(global_program + best)
+            base_truth_table = execute_program(best, base_truth_table).copy()
+            the_global_must_be_updated = False
+
+    return best, best_score
+
+
 def evolutionary_algorithm_truth_tables(
         walsh: WalshTransform,
         pop_size: int,
@@ -102,7 +231,7 @@ def evolutionary_algorithm_truth_tables(
         verbose: bool = False,
         plateau_iter: int = 1000000,
         mutually_exclusive: bool = False,
-        affinity_function: Callable[[Individual, Individual], float] = None,
+        affinity_function: Callable[[Individual, Individual], float] | None = None,
         matchmaker_pool_rate: float = 0.8,
         # Cellular GA parameters
         pressure: int = 2,
@@ -110,13 +239,13 @@ def evolutionary_algorithm_truth_tables(
         radius: int = 0,
         pop_shape: tuple[int, ...] = (),
         cmp_rate: float = 0.0,
-) -> tuple[Any, float]:
+) -> tuple[Any, float, dict[str, Any]]:
     """
     Evolutionary algorithm with elitism, single-child crossover, and mutation.
     """
     
     is_cellular_selection = torus_dim != 0
-    neighbors_topology_factory = create_neighbors_topology_factory(pop_size=pop_size, pop_shape=pop_shape, torus_dim=torus_dim, radius=radius, pressure=pressure)
+    neighbors_topology_factory = create_neighbors_topology_factory(pop_size=pop_size, pop_shape=pop_shape, torus_dim=torus_dim, radius=radius, pressure=pressure, rand=rand)
 
     all_possible_coordinates, all_neighborhoods_indices = compute_all_possible_neighborhoods(pop_size=pop_size, pop_shape=pop_shape, is_cellular_selection=is_cellular_selection, neighbors_topology_factory=neighbors_topology_factory)
     weights_matrix_moran = weights_matrix_for_morans_I(pop_size=pop_size, is_cellular_selection=is_cellular_selection, all_possible_coordinates=all_possible_coordinates, all_neighborhoods_indices=all_neighborhoods_indices)
@@ -280,6 +409,7 @@ def evolutionary_algorithm_truth_tables(
 
 def evolutionary_algorithm_programs(
         walsh: WalshTransform,
+        init_bin_size: int,
         pop_size: int,
         n_iter: int,
         pipeline_iter_step: int,
@@ -295,7 +425,7 @@ def evolutionary_algorithm_programs(
         verbose: bool = False,
         plateau_iter: int = 1000000,
         mutually_exclusive: bool = False,
-        affinity_function: Callable[[Individual, Individual], float] = None,
+        affinity_function: Callable[[IndividualProgram, IndividualProgram], float] | None = None,
         matchmaker_pool_rate: float = 0.8,
         # Cellular GA parameters
         pressure: int = 2,
@@ -303,23 +433,42 @@ def evolutionary_algorithm_programs(
         radius: int = 0,
         pop_shape: tuple[int, ...] = (),
         cmp_rate: float = 0.0,
-) -> tuple[Any, float]:
+) -> tuple[Any, np.ndarray, float, dict[str, Any]]:
     """
     Evolutionary algorithm with elitism, single-child crossover, and mutation.
     """
-    
+
     is_cellular_selection = torus_dim != 0
-    neighbors_topology_factory = create_neighbors_topology_factory(pop_size=pop_size, pop_shape=pop_shape, torus_dim=torus_dim, radius=radius, pressure=pressure)
+    neighbors_topology_factory = create_neighbors_topology_factory(pop_size=pop_size, pop_shape=pop_shape, torus_dim=torus_dim, radius=radius, pressure=pressure, rand=rand)
 
     all_possible_coordinates, all_neighborhoods_indices = compute_all_possible_neighborhoods(pop_size=pop_size, pop_shape=pop_shape, is_cellular_selection=is_cellular_selection, neighbors_topology_factory=neighbors_topology_factory)
     weights_matrix_moran = weights_matrix_for_morans_I(pop_size=pop_size, is_cellular_selection=is_cellular_selection, all_possible_coordinates=all_possible_coordinates, all_neighborhoods_indices=all_neighborhoods_indices)
-    
-    # Initialize population
-    the_global_must_be_updated = True
-    base_truth_table = generate_alternate_balanced_binary_vector_one_zero(walsh.domain().space_cardinality())
+
+    temp_base_truth_table_as_str = "1010" # Default value in case init_bin_size == 0
+
+    # Initialize base truth table
+    if init_bin_size < 0:
+        raise ValueError("init_bin_size must be non-negative.")
+    if init_bin_size == 0:
+        base_truth_table = generate_alternate_balanced_binary_vector_one_zero(walsh.domain().space_cardinality())
+    else:
+        # Check if init_bin_size is a power of two
+        if (init_bin_size & (init_bin_size - 1)) != 0:
+            raise ValueError("init_bin_size must be a power of two.")
+        if walsh.domain().space_cardinality() % init_bin_size != 0:
+            raise ValueError("init_bin_size must be a divisor of walsh.domain().space_cardinality().")
+        # Generate a balanced truth table of size init_bin_size and shuffle it
+        temp_base_truth_table = generate_alternate_balanced_binary_vector_one_zero(init_bin_size)
+        rng.shuffle(temp_base_truth_table)
+        # Replicate the temp_base_truth_table to reach the desired size, which is equal to walsh.domain().space_cardinality()
+        base_truth_table = np.tile(temp_base_truth_table, walsh.domain().space_cardinality() // len(temp_base_truth_table))
+        temp_base_truth_table_as_str = "".join([str(aaa) for aaa in temp_base_truth_table.tolist()])
+
     original_truth_table = base_truth_table.copy()
     global_program = []
+    the_global_must_be_updated = True
 
+    # Initialize population
     temp_pop = initialize(pop_size)
     truth_tables = [execute_program(prog, base_truth_table) for prog in temp_pop]
     spectra = [walsh.apply(tt) for tt in truth_tables]
@@ -341,6 +490,7 @@ def evolutionary_algorithm_programs(
     history['pop_min_fitness'] = [np.min([ind.fitness for ind in population])]
     history['pop_max_fitness'] = [np.max([ind.fitness for ind in population])]
 
+    history['global_program_length'] = [len(global_program)]
     history["best_length"] = [len(best.program)]
     history["pop_med_length"] = [statistics.median([len(ind.program) for ind in population])]
     history["pop_q1_length"] = [np.percentile([len(ind.program) for ind in population], 25)]
@@ -359,6 +509,8 @@ def evolutionary_algorithm_programs(
     #history['vanilla_global_moran_I'] = [global_moran_I([ind.spectrum for ind in population], w=one_matrix_zero_diagonal(pop_size))]
     history['real_global_moran_I'] = [global_moran_I([ind.spectrum for ind in population], w=weights_matrix_moran)]
     #history['diversity_median'] = [compute_euclidean_diversity_all_distinct_distances([ind.spectrum for ind in population], measure='median')]
+
+    history["initial_truth_table_block_str"] = [temp_base_truth_table_as_str]
 
     if isinstance(population[0].genome, np.ndarray) and not check_all_truth_tables_are_balanced([ind.genome for ind in population]):
         raise ValueError(f"Not all truth tables are balanced. Gen {'Initialization'}.")
@@ -475,6 +627,7 @@ def evolutionary_algorithm_programs(
         history['pop_min_fitness'].append(np.min([ind.fitness for ind in population]))
         history['pop_max_fitness'].append(np.max([ind.fitness for ind in population]))
 
+        history['global_program_length'].append(len(global_program))
         history["best_length"].append(len(best.program))
         history["pop_med_length"].append(statistics.median([len(ind.program) for ind in population]))
         history["pop_q1_length"].append(np.percentile([len(ind.program) for ind in population], 25))
@@ -494,12 +647,19 @@ def evolutionary_algorithm_programs(
         history['real_global_moran_I'].append(global_moran_I([ind.spectrum for ind in population], w=weights_matrix_moran))
         #history['diversity_median'].append(compute_euclidean_diversity_all_distinct_distances([ind.spectrum for ind in population], measure='median'))
 
+        history["initial_truth_table_block_str"].append(temp_base_truth_table_as_str)
+
         if isinstance(population[0].genome, np.ndarray) and not check_all_truth_tables_are_balanced([ind.genome for ind in population]):
             raise ValueError(f"Not all truth tables are balanced. Gen {curr_iter}.")
         
         if the_global_must_be_updated and (curr_iter + 1) % pipeline_iter_step == 0:
-            global_program = global_program + best.program
-            base_truth_table = execute_program(best.program, base_truth_table)
+            global_program = clone_program(global_program + best.program)
+            base_truth_table = execute_program(best.program, base_truth_table).copy()
             the_global_must_be_updated = False
+
+    # Check that the truth table of the best individual is the same as the one obtained by executing the global program on the original truth table
+    checked_truth_table = execute_program(global_program, original_truth_table)
+    if not np.array_equal(best.genome, checked_truth_table):
+        raise ValueError("The truth table of the best individual is not the same as the one obtained by executing the global program on the original truth table.")
 
     return global_program, original_truth_table, best_score, history

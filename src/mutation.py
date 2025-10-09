@@ -3,7 +3,7 @@ import random
 from collections.abc import Callable
 from generator import execute_program, initialize_population_programs, primitives, random_program, random_terminal, clone_program
 from full_binary_domain import FullBinaryDomain
-from algorithm import evolutionary_algorithm_programs, simulated_annealing, random_search
+from algorithm import evolutionary_algorithm_programs, simulated_annealing_truth_tables, random_search_truth_tables
 from crossover import homologous_crossover
 from walsh_transform import WalshTransform
 
@@ -52,8 +52,7 @@ def local_search_swaps(ind: np.ndarray, eval_fn: Callable[[np.ndarray], float], 
     used = 1
     ones = np.where(best == 1)[0].tolist()
     zeros = np.where(best == 0)[0].tolist()
-    if not ones or not zeros:
-        return best, best_score, used
+
     for _ in range(eval_budget - 1):
         i = rand.choice(ones)
         j = rand.choice(zeros)
@@ -148,101 +147,101 @@ def spectrum_aware_swap(
     return best
 
 
-def programs_random_search_enhancing_balanced_truth_table(
-        domain: FullBinaryDomain,
-        walsh: WalshTransform,
-        ind: np.ndarray,
-        eval_budget: int,
-        min_length: int,
-        max_length: int,
-        sampling_probabilities: list[float],
-        rng: np.random.Generator,
-        rand: random.Random,
-) -> np.ndarray:
-    ind = ind.copy()
-    generate = lambda: random_program(domain.space_cardinality(), sampling_probabilities, min_length, max_length, rng, rand)
-    evaluate = lambda x: walsh.granular_non_linearity(walsh.apply(execute_program(x, ind))[0])
+# def programs_random_search_enhancing_balanced_truth_table(
+#         domain: FullBinaryDomain,
+#         walsh: WalshTransform,
+#         ind: np.ndarray,
+#         eval_budget: int,
+#         min_length: int,
+#         max_length: int,
+#         sampling_probabilities: list[float],
+#         rng: np.random.Generator,
+#         rand: random.Random,
+# ) -> np.ndarray:
+#     ind = ind.copy()
+#     generate = lambda: random_program(domain.space_cardinality(), sampling_probabilities, min_length, max_length, rng, rand)
+#     evaluate = lambda x: walsh.granular_non_linearity(walsh.apply(execute_program(x, ind))[0])
 
-    best_solution, _ = random_search(
-        n_iter=eval_budget,
-        generate=generate,
-        evaluate=evaluate,
-        verbose=False,
-    )
+#     best_solution, _ = random_search_truth_tables(
+#         n_iter=eval_budget,
+#         generate=generate,
+#         evaluate=evaluate,
+#         verbose=False,
+#     )
 
-    return execute_program(best_solution, ind)
-
-
-def programs_simulated_annealing_enhancing_balanced_truth_table(
-        domain: FullBinaryDomain,
-        walsh: WalshTransform,
-        ind: np.ndarray,
-        eval_budget: int,
-        min_length: int,
-        max_length: int,
-        sampling_probabilities: list[float],
-        rng: np.random.Generator,
-        rand: random.Random,
-) -> np.ndarray:
-    ind = ind.copy()
-    generate = lambda: random_program(domain.space_cardinality(), sampling_probabilities, min_length, max_length, rng, rand)
-    evaluate = lambda x: walsh.granular_non_linearity(walsh.apply(execute_program(x, ind))[0])
-    mutate = lambda x: mutate_program(x, domain.space_cardinality(), sampling_probabilities, min_length, max_length, rand)
-
-    best_solution, _ = simulated_annealing(
-        n_iter=eval_budget,
-        generate=generate,
-        evaluate=evaluate,
-        mutate=mutate,
-        rand=rand,
-        verbose=False,
-    )
-
-    return execute_program(best_solution, ind)
+#     return execute_program(best_solution, ind)
 
 
-def programs_evolutionary_algorithm_enhancing_balanced_truth_table(
-        domain: FullBinaryDomain,
-        walsh: WalshTransform,
-        ind: np.ndarray,
-        pop_size: int,
-        n_iter: int,
-        min_length: int,
-        max_length: int,
-        sampling_probabilities: list[float],
-        rng: np.random.Generator,
-        rand: random.Random,
-) -> np.ndarray:
-    ind = ind.copy()
-    initialize = lambda x: initialize_population_programs(x, domain.space_cardinality(), sampling_probabilities, min_length, max_length, rng, rand)
-    evaluate = lambda x: walsh.granular_non_linearity(walsh.apply(execute_program(x, ind))[0])
-    mate = lambda x, y: homologous_crossover(x, y, min_length, max_length, rand)
-    mutate = lambda x: mutate_program(x, domain.space_cardinality(), sampling_probabilities, min_length, max_length, rand)
+# def programs_simulated_annealing_enhancing_balanced_truth_table(
+#         domain: FullBinaryDomain,
+#         walsh: WalshTransform,
+#         ind: np.ndarray,
+#         eval_budget: int,
+#         min_length: int,
+#         max_length: int,
+#         sampling_probabilities: list[float],
+#         rng: np.random.Generator,
+#         rand: random.Random,
+# ) -> np.ndarray:
+#     ind = ind.copy()
+#     generate = lambda: random_program(domain.space_cardinality(), sampling_probabilities, min_length, max_length, rng, rand)
+#     evaluate = lambda x: walsh.granular_non_linearity(walsh.apply(execute_program(x, ind))[0])
+#     mutate = lambda x: mutate_program(x, domain.space_cardinality(), sampling_probabilities, min_length, max_length, rand)
 
-    best_solution, _ = evolutionary_algorithm_programs(
-        pop_size=pop_size,
-        n_iter=n_iter,
-        initialize=initialize,
-        evaluate=evaluate,
-        mate=mate,
-        mutate=mutate,
-        rng=rng,
-        rand=rand,
-        verbose=False,
-        cx_rate=0.5,
-        mut_rate=0.5,
-        mutually_exclusive=True,
-        plateau_iter=1000000,
-        # Cellular GA parameters
-        pressure=2,
-        torus_dim=0,
-        radius=0,
-        pop_shape=tuple(),
-        cmp_rate=0.0,
+#     best_solution, _ = simulated_annealing(
+#         n_iter=eval_budget,
+#         generate=generate,
+#         evaluate=evaluate,
+#         mutate=mutate,
+#         rand=rand,
+#         verbose=False,
+#     )
 
-    )
+#     return execute_program(best_solution, ind)
 
-    return execute_program(best_solution.genome, ind)
+
+# def programs_evolutionary_algorithm_enhancing_balanced_truth_table(
+#         domain: FullBinaryDomain,
+#         walsh: WalshTransform,
+#         ind: np.ndarray,
+#         pop_size: int,
+#         n_iter: int,
+#         min_length: int,
+#         max_length: int,
+#         sampling_probabilities: list[float],
+#         rng: np.random.Generator,
+#         rand: random.Random,
+# ) -> np.ndarray:
+#     ind = ind.copy()
+#     initialize = lambda x: initialize_population_programs(x, domain.space_cardinality(), sampling_probabilities, min_length, max_length, rng, rand)
+#     evaluate = lambda x: walsh.granular_non_linearity(walsh.apply(execute_program(x, ind))[0])
+#     mate = lambda x, y: homologous_crossover(x, y, min_length, max_length, rand)
+#     mutate = lambda x: mutate_program(x, domain.space_cardinality(), sampling_probabilities, min_length, max_length, rand)
+
+#     best_solution, _ = evolutionary_algorithm_programs(
+#         pop_size=pop_size,
+#         n_iter=n_iter,
+#         initialize=initialize,
+#         evaluate=evaluate,
+#         mate=mate,
+#         mutate=mutate,
+#         rng=rng,
+#         rand=rand,
+#         verbose=False,
+#         cx_rate=0.5,
+#         mut_rate=0.5,
+#         mutually_exclusive=True,
+#         plateau_iter=1000000,
+#         # Cellular GA parameters
+#         pressure=2,
+#         torus_dim=0,
+#         radius=0,
+#         pop_shape=tuple(),
+#         cmp_rate=0.0,
+
+#     )
+
+#     return execute_program(best_solution.genome, ind)
 
 # ===========================================================================
 # Linear GP Program Permutations Mutation
@@ -254,7 +253,7 @@ Program = list[tuple[str, list]]
 
 def mutate_program(
     program: Program,
-    n: int,
+    N: int,
     sampling_probabilities: list[float],
     min_length: int,
     max_length: int,
@@ -276,7 +275,7 @@ def mutate_program(
     # --- INSERT ---
     if op == "INSERT" and len(prog) < max_length:
         new_name = rand.choices(primitives_keys, weights=sampling_probabilities, k=1)[0]
-        new_params = [random_terminal(n, kind, rand) for kind in primitives_dict[new_name]["params"]]
+        new_params = [random_terminal(N, kind, rand) for kind in primitives_dict[new_name]["params"]]
         insert_pos = rand.randrange(len(prog) + 1)
         prog.insert(insert_pos, (new_name, new_params))
 
@@ -295,14 +294,14 @@ def mutate_program(
             if rand.random() < 0.5:
                 # Replace entire primitive
                 new_name = rand.choices(primitives_keys, weights=sampling_probabilities, k=1)[0]
-                new_params = [random_terminal(n, kind, rand) for kind in primitives_dict[new_name]["params"]]
+                new_params = [random_terminal(N, kind, rand) for kind in primitives_dict[new_name]["params"]]
                 prog[idx] = (new_name, new_params)
             else:
                 # Mutate one parameter
                 if len(params) > 0:
                     p_idx = rand.randrange(len(params))
                     kind = primitives_dict[name]["params"][p_idx]
-                    params[p_idx] = random_terminal(n, kind, rand)
+                    params[p_idx] = random_terminal(N, kind, rand)
                     prog[idx] = (name, params)
 
     return prog

@@ -77,11 +77,12 @@ def create_neighbors_topology_factory(
         pop_shape: tuple[int, ...],
         torus_dim: int,
         radius: int,
-        pressure: int
+        pressure: int,
+        rand: random.Random
 ) -> NeighborsTopologyFactory:
     
     if torus_dim == 0:
-        return TournamentTopologyFactory(pressure=pressure)
+        return TournamentTopologyFactory(pressure=pressure, rand=rand)
     else:
         if len(pop_shape) != torus_dim:
             raise ValueError(f'{torus_dim} is the torus_dim but the length of pop_shape is {len(pop_shape)}, there is a mismatch, check the provided pop_shape {str(pop_shape)}.')

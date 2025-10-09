@@ -74,7 +74,7 @@ def greedy_maxmin_initial_population(size: int, pop_size: int, rng: np.random.Ge
     # pick one random first
     selected = [pool.pop(rng.integers(len(pool)))]
     while len(selected) < pop_size:
-        best_idx = None
+        best_idx = -1
         best_min = -1
         for i, cand in enumerate(pool):
             dists = [np.sum(cand != s) for s in selected]
@@ -174,19 +174,18 @@ def swap(i: int, j: int, L: np.ndarray) -> np.ndarray:
     return L
 
 
-def consecutive_swaps(indexes: tuple[int, ...], L: np.ndarray) -> np.ndarray:
-    for ii in range(0, len(indexes), 2):
-        i, j = indexes[ii], indexes[ii + 1]
-        L[i], L[j] = L[j], L[i]
-    return L
-
-
-def block_swaps(indexes: tuple[int, ...], L: np.ndarray) -> np.ndarray:
-    half = len(indexes) // 2
-    sorted_indexes = sorted(indexes)
-    for ii in range(half):
-        i, j = sorted_indexes[ii], sorted_indexes[ii + half]
-        L[i], L[j] = L[j], L[i]
+def block_swaps(pair_of_intervals: tuple[tuple[int, int], tuple[int, int]], L: np.ndarray) -> np.ndarray:
+    interval1 = pair_of_intervals[0]
+    interval2 = pair_of_intervals[1]
+    start1, end1 = interval1[0], interval1[1]
+    start2, end2 = interval2[0], interval2[1]
+    start1, end1 = min(start1, end1), max(start1, end1)
+    start2, end2 = min(start2, end2), max(start2, end2)
+    len1 = end1 - start1 + 1
+    len2 = end2 - start2 + 1
+    if len1 != len2:
+        raise ValueError("Intervals must be of the same length for block swap.")
+    L[start1:end1 + 1], L[start2:end2 + 1] = L[start2:end2 + 1].copy(), L[start1:end1 + 1].copy()
     return L
 
 
@@ -197,18 +196,8 @@ def reverse(interval: tuple[int, int], L: np.ndarray) -> np.ndarray:
     return L
 
 
-def scramble(interval: tuple[int, int], seed: int, L: np.ndarray) -> np.ndarray:
-    start, end = interval[0], interval[1]
-    start, end = min(start, end), max(start, end)
-    rng = np.random.default_rng(seed)
-    sub = L[start:end + 1].copy()
-    rng.shuffle(sub)
-    L[start:end + 1] = sub
-    return L
-
-
-def rotate(interval: tuple[int, int], k: int, L: np.ndarray) -> np.ndarray:
-    start, end = interval[0], interval[1]
+def rotate(interval: tuple[int, int, int], L: np.ndarray) -> np.ndarray:
+    start, end, k = interval[0], interval[1], interval[2]
     start, end = min(start, end), max(start, end)
     sub = L[start:end + 1].copy()
     n = sub.shape[0]
@@ -232,6 +221,52 @@ def shift_1s(interval: tuple[int, int], L: np.ndarray) -> np.ndarray:
     return L
 
 
+def block_exchange(pair_of_intervals: tuple[tuple[int, int], tuple[int, int]], L: np.ndarray) -> np.ndarray:
+    interval1 = pair_of_intervals[0]
+    interval2 = pair_of_intervals[1]
+    start1, end1 = interval1[0], interval1[1]
+    start2, end2 = interval2[0], interval2[1]
+    start1, end1 = min(start1, end1), max(start1, end1)
+    start2, end2 = min(start2, end2), max(start2, end2)
+    len1 = end1 - start1 + 1
+    len2 = end2 - start2 + 1
+    # This must simply exchange the two blocks, but the two blocks can be of different sizes.
+    # Therefore, the new truth table will have the same size, but the two blocks will be swapped.
+    # The area between the two blocks will be traslated accordingly.
+    # For example, if we have:
+    # L = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    # and we swap intervals (1, 4) and (6, 8), we get:
+    # L = [0, 6, 7, 8, 5, 1, 2, 3, 4, 9]
+    # The area between the two blocks (5) is translated accordingly.
+    if start1 > start2:
+        # ensure start1 < start2
+        start1, end1, start2, end2 = start2, end2, start1, end1
+        len1, len2 = len2, len1
+    middle = L[end1 + 1:start2].copy() if end1 + 1 < start2 else np.array([], dtype=L.dtype)
+    segment1 = L[start1:end1 + 1].copy()
+    segment2 = L[start2:end2 + 1].copy()
+    L[start1:start1 + len2] = segment2
+    L[start1 + len2:start1 + len2 + middle.shape[0]] = middle
+    L[start1 + len2 + middle.shape[0]:start1 + len2 + middle.shape[0] + len1] = segment1
+    return L
+
+
+def consecutive_swaps(indexes: tuple[int, ...], L: np.ndarray) -> np.ndarray:
+    for ii in range(0, len(indexes), 2):
+        i, j = indexes[ii], indexes[ii + 1]
+        L[i], L[j] = L[j], L[i]
+    return L
+
+
+def scramble(interval: tuple[int, int], seed: int, L: np.ndarray) -> np.ndarray:
+    start, end = interval[0], interval[1]
+    start, end = min(start, end), max(start, end)
+    rng = np.random.default_rng(seed)
+    sub = L[start:end + 1].copy()
+    rng.shuffle(sub)
+    L[start:end + 1] = sub
+    return L
+
 # === TERMINALS ===
 
 def random_terminal(N: int, kind: str, rand: random.Random):
@@ -254,6 +289,14 @@ def random_terminal(N: int, kind: str, rand: random.Random):
         start = rand.randint(0, N - max_interval_size)
         end = rand.randint(start + 1, start + max_interval_size - 1)
         return start, end
+    elif kind == "interval_with_int":
+        max_interval_size = N // 4
+        if max_interval_size < 2:
+            max_interval_size = 2
+        start = rand.randint(0, N - max_interval_size)
+        end = rand.randint(start + 1, start + max_interval_size - 1)
+        k = rand.randint(1, end - start)  # rotate by at least 1 and at most interval size - 1
+        return (start, end, k)
     elif kind == "small_interval":
         max_interval_size = N // 10
         if max_interval_size < 2:
@@ -261,6 +304,29 @@ def random_terminal(N: int, kind: str, rand: random.Random):
         start = rand.randint(0, N - max_interval_size)
         end = rand.randint(start + 1, start + max_interval_size - 1)
         return start, end
+    elif kind == "pair_of_intervals":
+        # must craft two intervals that do not overlap and with the same length
+        max_interval_size = N // 8
+        if max_interval_size < 2:
+            max_interval_size = 2
+        interval_size = rand.randint(2, max_interval_size)
+        start1 = rand.randint(0, N - 2 * interval_size - 1)
+        end1 = start1 + interval_size - 1
+        start2 = rand.randint(end1 + 1, N - interval_size)
+        end2 = start2 + interval_size - 1
+        return (start1, end1), (start2, end2)
+    elif kind == "pair_of_intervals_different_sizes":
+        # must craft two intervals that do not overlap and with different lengths
+        max_interval_size = N // 8
+        if max_interval_size < 2:
+            max_interval_size = 2
+        interval_size1 = rand.randint(2, max_interval_size)
+        interval_size2 = rand.randint(2, max_interval_size)
+        start1 = rand.randint(0, N - interval_size1 - interval_size2 - 1)
+        end1 = start1 + interval_size1 - 1
+        start2 = rand.randint(end1 + 1, N - interval_size2)
+        end2 = start2 + interval_size2 - 1
+        return (start1, end1), (start2, end2)
     else:
         raise ValueError(f"Unknown terminal type {kind}")
 
@@ -273,30 +339,34 @@ def primitives():
             "func": swap,
             "params": ["index", "index"]
         },
-        "2-consecutive_swaps": {
-           "func": consecutive_swaps,
-           "params": ["indexes"]
-        },
-        "3-block_swaps": {
+        "2-block_swaps": {
            "func": block_swaps,
-           "params": ["indexes"]
+           "params": ["pair_of_intervals"]
         },
-        "4-reverse": {
+        "3-reverse": {
            "func": reverse,
            "params": ["interval"]
         },
-        "5-rotate": {
+        "4-rotate": {
            "func": rotate,
-           "params": ["interval", "int"]
+           "params": ["interval_with_int"]
         },
-        "6-shift_1s": {
+        "5-shift_1s": {
            "func": shift_1s,
            "params": ["interval"]
         },
-        "7-scramble": {
-           "func": scramble,
-           "params": ["interval", "seed"]
+        "6-block_exchange": {
+           "func": block_exchange,
+           "params": ["pair_of_intervals_different_sizes"]
         },
+        # "7-consecutive_swaps": {
+        #    "func": consecutive_swaps,
+        #    "params": ["indexes"]
+        # },
+        # "8-scramble": {
+        #    "func": scramble,
+        #    "params": ["interval", "seed"]
+        # },
     }
 
     return primitives_dict

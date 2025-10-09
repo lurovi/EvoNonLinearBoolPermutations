@@ -3,7 +3,6 @@ import time
 from parallel import process_pool_parallelize
 import pandas as pd
 import traceback
-from algorithm import random_search, simulated_annealing
 from crossover import *
 from mutation import *
 from selection import *
@@ -44,6 +43,46 @@ def run_save_truth_tables_ea(n_bits, pop_size, n_iter, seed_index, pressure, tor
             f.write(f"Error in run EA for n_bits={n_bits}, seed={seed_index}, pressure={pressure}, torus_dim={torus_dim}, radius={radius}, cmp_rate={cmp_rate}: {e}\n")
             f.write(str(traceback.format_exc()))
         return None, None, None
+    
+
+def run_save_programs_ea(sampling_probabilities, init_bin_size, n_bits, pop_size, n_iter, pipeline_iter_step, seed_index, min_length, max_length, pressure, torus_dim, radius, pop_shape, cmp_rate, matchmaker_pool_rate, affinity_type, verbose):
+    try:
+        seeds = random.Random(42).sample(range(1, 1_000_000 + 1), 1000)
+        start_time = time.time()
+        best_program, original_truth_table, best_score, history = programs_ea(
+            init_bin_size=init_bin_size,
+            sampling_probabilities=sampling_probabilities,
+            pipeline_iter_step=pipeline_iter_step,
+            n_bits=n_bits,
+            pop_size=pop_size,
+            n_iter=n_iter,
+            seed=seeds[seed_index - 1],
+            min_length=min_length,
+            max_length=max_length,
+            pressure=pressure,
+            torus_dim=torus_dim,
+            radius=radius,
+            pop_shape=pop_shape,
+            cmp_rate=cmp_rate,
+            matchmaker_pool_rate=matchmaker_pool_rate,
+            affinity_type=affinity_type,
+            verbose=verbose,
+        )
+        end_time = time.time()
+        execution_time_in_minutes = (end_time - start_time) / 60
+        history["min_exec_time"] = [execution_time_in_minutes] * len(history["best_fitness"])
+        history = pd.DataFrame(history)
+        history.to_csv(f'../results/pop{pop_size}_gen{n_iter}/ea_programs_n_bits_{n_bits}_seed_{seed_index}_pressure_{pressure}_torus_{torus_dim}_radius_{radius}_cmp_{str(cmp_rate).replace(".", "d")}_len_{min_length}_{max_length}_pipeiter_{pipeline_iter_step}_initbin_{init_bin_size}.csv', index=False)
+        with open(f'../results/pop{pop_size}_gen{n_iter}/best_ea_programs_n_bits_{n_bits}_seed_{seed_index}_pressure_{pressure}_torus_{torus_dim}_radius_{radius}_cmp_{str(cmp_rate).replace(".", "d")}_len_{min_length}_{max_length}_pipeiter_{pipeline_iter_step}_initbin_{init_bin_size}.txt', 'w') as f:
+            f.write(str(best_program))
+        print(f"Completed run EA Programs for n_bits={n_bits}, seed={seed_index}, pressure={pressure}, torus_dim={torus_dim}, radius={radius}, cmp_rate={cmp_rate} len={min_length}_{max_length} pipeiter={pipeline_iter_step} initbin={init_bin_size} in {execution_time_in_minutes} minutes")
+        return best_program, original_truth_table, best_score, history
+    except Exception as e:
+        print(f"Error in run EA Programs for n_bits={n_bits}, seed={seed_index}, pressure={pressure}, torus_dim={torus_dim}, radius={radius}, cmp_rate={cmp_rate} len={min_length}_{max_length} pipeiter={pipeline_iter_step} initbin={init_bin_size}: {e}")
+        with open('../error_log.txt', 'a') as f:
+            f.write(f"Error in run EA Programs for n_bits={n_bits}, seed={seed_index}, pressure={pressure}, torus_dim={torus_dim}, radius={radius}, cmp_rate={cmp_rate} len={min_length}_{max_length} pipeiter={pipeline_iter_step} initbin={init_bin_size}: {e}\n")
+            f.write(str(traceback.format_exc()))
+        return None, None, None, None
 
 
 if __name__ == "__main__":
@@ -149,21 +188,52 @@ if __name__ == "__main__":
     print(pop[2])
     print(mutate(pop[2]))
     print()
+    
+    
+    rng = np.random.default_rng(1)
+    rand = random.Random(1)
+
+    domain = FullBinaryDomain(5)
+    walsh = WalshTransform(5)
+    
+    sampling_probabilities = [1/6, 1/6, 1/6, 1/6, 1/6, 1/6, 0.0, 0.0]
+    min_length = 2
+    max_length = 5
+    
+    N = domain.space_cardinality()
+    base_truth_table = generate_alternate_balanced_binary_vector_one_zero(N)
+
+    for _ in range(5):
+        pr = random_program(N, sampling_probabilities, min_length, max_length, rng, rand)
+        print(pr)
+        print(base_truth_table)
+        print(execute_program(pr, base_truth_table))
+        #with open('temp.txt', 'w') as f:
+        #    f.write(str(pr))
+        #with open('temp.txt', 'r') as f:
+        #    data =  eval(f.read())
+        #print(data)
+        #print(pr == data)
+        print()
+        print()
+        #quit()
+
+    quit()
     """
     print('================================== FINAL TEST ================================')
-    # start_time = time()
+    # start_time = time.time()
     # torus_dim = 0
-    # radius = 3
+    # radius = 2
+    # cmp_rate = 0.75
     # pop_shape = (10, 10)
-    # pressure = 4
-    # cmp_rate = 0.25
-    # #sampling_probabilities = [1/6, 1/6, 1/6, 1/6, 1/6, 1/6, 0.0]
-    # sampling_probabilities = [0.7, 0.0, 0.0, 0.1, 0.1, 0.1, 0.0]
+    # pressure = 3
+    # #sampling_probabilities = [1/5] * 5 + [0.0] * 1
+    # sampling_probabilities = [1/6] * 6
 
     # best_program, best_score, history = truth_tables_ea(
     #     n_bits=10,
-    #     pop_size=100,
-    #     n_iter=500,
+    #     pop_size=50,
+    #     n_iter=10000,
     #     seed=2,
     #     verbose=True,
     #     pressure=pressure,
@@ -171,41 +241,42 @@ if __name__ == "__main__":
     #     radius=radius,
     #     pop_shape=pop_shape,
     #     cmp_rate=cmp_rate,
-    #     matchmaker_pool_rate=0.8,
+    #     matchmaker_pool_rate=0.0,
     #     affinity_type='random',
     # )
-    # end_time = time()
+    # end_time = time.time()
     # print(f"Best program: {best_program.genome}")
     # print(f"Best score: {best_score}")
     # print(f"Time taken: {(end_time - start_time) / 60} minutes")
     
     #best_program, best_score = programs_rs(n_bits=10, sampling_probabilities=sampling_probabilities, warm_up=50000, n_iter=500000, seed=1, min_length=2, max_length=40, verbose=True)
     #best_program, best_score = programs_sa(n_bits=10, sampling_probabilities=sampling_probabilities, warm_up=50000, n_iter=500000, seed=1, min_length=2, max_length=10, verbose=True)
-    
-    # best_program, best_score, history = programs_ea(
+
+    # best_program, original_truth_table, best_score, history = programs_ea(
+    #     init_bin_size=16,
     #     n_bits=10,
     #     sampling_probabilities=sampling_probabilities,
     #     pop_size=50,
-    #     #warm_up=0,
-    #     n_iter=500,
-    #     seed=1,
+    #     n_iter=10000,
+    #     pipeline_iter_step=100,
+    #     seed=2,
     #     min_length=2,
-    #     max_length=20,
+    #     max_length=5,
     #     verbose=True,
     #     pressure=pressure,
     #     torus_dim=torus_dim,
     #     radius=radius,
     #     pop_shape=pop_shape,
     #     cmp_rate=cmp_rate,
-    #     matchmaker_pool_rate=0.8,
+    #     matchmaker_pool_rate=0.0,
     #     affinity_type='random',
     # )
-    # end_time = time()
-    # print(f"Best program: {best_program.genome}")
+    # end_time = time.time()
+    # print(f"Best program: {best_program}")
     # print(f"Best score: {best_score}")
     # print(f"Time taken: {(end_time - start_time) / 60} minutes")
-    
-    print('================================== MASSIVE EXP ================================')
+
+    print('================================== MASSIVE EXP TT ================================')
     #n_bits = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
     #n_bits = [5, 6, 7, 8, 9]
     #n_bits = [10, 11, 12]
@@ -214,6 +285,7 @@ if __name__ == "__main__":
 
     pop_size = 100
     n_iter = 1000
+    pressure = 4
     matchmaker_pool_rate = 0.0
     affinity_type = 'random'
     verbose = False
@@ -225,7 +297,7 @@ if __name__ == "__main__":
             all_jobs_params.append(
                 {
                     "n_bits": nb, "pop_size": pop_size, "n_iter": n_iter, "seed_index": sd_index,
-                    "pressure": 4, "torus_dim": 0, "radius": 0, "pop_shape": tuple(), "cmp_rate": 0.0,
+                    "pressure": pressure, "torus_dim": 0, "radius": 0, "pop_shape": tuple(), "cmp_rate": 0.0,
                     "matchmaker_pool_rate": matchmaker_pool_rate, "affinity_type": affinity_type, "verbose": verbose
                 }
             )
@@ -241,3 +313,40 @@ if __name__ == "__main__":
                     )
 
     _ = process_pool_parallelize(run_save_truth_tables_ea, all_jobs_params, num_workers=-2)
+    
+    print('================================== MASSIVE EXP PROGS ================================')
+    #n_bits = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+    #n_bits = [5, 6, 7, 8, 9]
+    #n_bits = [10, 11, 12]
+    n_bits = [13, 14, 15, 16]
+    seed_indexes = list(range(1, 30 + 1))
+
+    pop_size = 50
+    n_iter = 10000
+    pressure = 3
+    matchmaker_pool_rate = 0.0
+    affinity_type = 'random'
+    verbose = False
+    sampling_probabilities = [1/6] * 6
+
+    all_jobs_params = []
+
+    for nb in n_bits:
+        for sd_index in seed_indexes:
+            for init_bin_size in [16]:
+                for pipeline_iter_step in [100, 200, 500]:
+                    for min_length, max_length in [(2, 5), (2, 10), (2, 20)]:
+                        all_jobs_params.append(
+                            {
+                                "n_bits": nb, "pop_size": pop_size, "n_iter": n_iter, "seed_index": sd_index,
+                                "sampling_probabilities": sampling_probabilities,
+                                "init_bin_size": init_bin_size,
+                                "pipeline_iter_step": pipeline_iter_step,
+                                "min_length": min_length,
+                                "max_length": max_length,
+                                "pressure": pressure, "torus_dim": 0, "radius": 0, "pop_shape": tuple(), "cmp_rate": 0.0,
+                                "matchmaker_pool_rate": matchmaker_pool_rate, "affinity_type": affinity_type, "verbose": verbose
+                            }
+                        )
+
+    _ = process_pool_parallelize(run_save_programs_ea, all_jobs_params, num_workers=-2)

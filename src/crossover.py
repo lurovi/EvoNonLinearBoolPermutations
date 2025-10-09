@@ -7,7 +7,7 @@ from generator import clone_program
 # GA Truth Table Permutations Crossover
 # ===========================================================================
 
-def order_crossover(parent1: np.ndarray, parent2: np.ndarray, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
+def order_crossover(parent1: np.ndarray, parent2: np.ndarray, rng: np.random.Generator) -> np.ndarray:
     """
     Frequency-aware Order Crossover (OX) adapted for binary strings.
     Preserves 1/0 counts exactly.
@@ -90,7 +90,7 @@ def position_based_crossover(parent1: np.ndarray, parent2: np.ndarray, rng: np.r
     return child.astype(np.int8)
 
 
-def cycle_crossover_binary(parent1: np.ndarray, parent2: np.ndarray, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
+def cycle_crossover_binary(parent1: np.ndarray, parent2: np.ndarray, rng: np.random.Generator) -> np.ndarray:
     """
     Cycle Crossover (CX) adapted for binary strings with duplicates.
     Ensures exact preservation of 0/1 counts.
@@ -159,7 +159,7 @@ def cycle_crossover_binary(parent1: np.ndarray, parent2: np.ndarray, rng: np.ran
     return child
 
 
-def pmx_binary(parent1: np.ndarray, parent2: np.ndarray, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
+def pmx_binary(parent1: np.ndarray, parent2: np.ndarray, rng: np.random.Generator) -> np.ndarray:
     """
     Partially Matched Crossover (PMX) adapted for binary strings with duplicates.
     Ensures preservation of the 0/1 counts.
@@ -312,7 +312,7 @@ def uniform_step_crossover(p1: Program, p2: Program, min_length: int, max_length
             step = rand.choice(p1 + p2)
         c.append(step)
 
-    return c
+    return enforce_length(c, min_length, max_length, rand)
 
 
 def homologous_crossover(p1: Program, p2: Program, min_length: int, max_length: int, rand: random.Random) -> Program:
@@ -350,4 +350,4 @@ def homologous_crossover(p1: Program, p2: Program, min_length: int, max_length: 
         # truncate
         c = c[:max_length]
 
-    return c
+    return enforce_length(c, min_length, max_length, rand)
