@@ -226,20 +226,21 @@ def evolutionary_algorithm_truth_tables(
         equal_individuals: Callable[[Any, Any], bool],
         rng: np.random.Generator,
         rand: random.Random,
-        cx_rate: float = 0.6,
-        mut_rate: float = 0.2,
-        save_fitness_list_for_each_gen: bool = False,
-        verbose: bool = False,
-        plateau_iter: int = 1000000,
-        mutually_exclusive: bool = False,
-        affinity_function: Callable[[Individual, Individual], float] | None = None,
-        matchmaker_pool_rate: float = 0.8,
+        cx_rate: float,
+        mut_rate: float,
+        save_fitness_list_for_each_gen: bool,
+        verbose: bool,
+        plateau_iter: int,
+        mutually_exclusive: bool,
+        duplicates_elimination_retry: int,
+        affinity_function: Callable[[Individual, Individual], float] | None,
+        matchmaker_pool_rate: float,
         # Cellular GA parameters
-        pressure: int = 2,
-        torus_dim: int = 0,
-        radius: int = 0,
-        pop_shape: tuple[int, ...] = (),
-        cmp_rate: float = 0.0,
+        pressure: int,
+        torus_dim: int,
+        radius: int,
+        pop_shape: tuple[int, ...],
+        cmp_rate: float,
 ) -> tuple[Any, float, dict[str, Any]]:
     """
     Evolutionary algorithm with elitism, single-child crossover, and mutation.
@@ -295,6 +296,7 @@ def evolutionary_algorithm_truth_tables(
 
         new_population = []
         affinity_values_cache = dict()
+        already_seen = set()
 
         if count_plateau >= plateau_iter:
             temp_pop = initialize(pop_size - 1)
@@ -305,63 +307,78 @@ def evolutionary_algorithm_truth_tables(
             count_plateau = 0
         else:
             while len(new_population) < pop_size:
-                # --- Selection ---
                 current_coordinate = all_possible_coordinates[current_coordinate_index]
-                p1, p2 = simple_selection_process(is_cellular_selection=is_cellular_selection, competitor_rate=cmp_rate, neighbors_topology=neighbors_topology, all_neighborhoods_indices=all_neighborhoods_indices, coordinate=current_coordinate, rand=rand)
                 
-                # Affinity-based selection of the second parent
-                if affinity_function is not None:
-                    matchmaker_pool_preliminary = [ind for ind in population if not equal_individuals(ind.genome, p1.genome)]
-                    matchmaker_pool = [ind for ind in matchmaker_pool_preliminary if rand.random() < matchmaker_pool_rate]
-                    if len(matchmaker_pool) == 0:
-                        matchmaker_pool = matchmaker_pool_preliminary
-                    if len(matchmaker_pool) != 0:
-                        p2 = matchmaker_pool[0]
-                        best_affinity = -np.inf
-                        for ind in matchmaker_pool:
-                            affinity_cache_keys_pair = [str(p1.genome), str(ind.genome)]
-                            affinity_cache_keys_pair.sort()
-                            affinity_cache_key = (affinity_cache_keys_pair[0], affinity_cache_keys_pair[1])
-                            if affinity_cache_key not in affinity_values_cache:
-                                affinity_values_cache[affinity_cache_key] = affinity_function(p1, ind)
-                            if affinity_values_cache[affinity_cache_key] > best_affinity:
-                                p2 = ind
-                                best_affinity = affinity_values_cache[affinity_cache_key]
-                
-                is_changed = False
-                p1_genome = p1.genome
-                p1_fitness = p1.fitness
-                p1_spectrum = p1.spectrum
-                p1_spectral_radius = p1.spectral_radius
+                # Retry mechanism for duplicates elimination
+                retry_count = 0
+                while True:
+                    # --- Selection ---
+                    p1, p2 = simple_selection_process(is_cellular_selection=is_cellular_selection, competitor_rate=cmp_rate, neighbors_topology=neighbors_topology, all_neighborhoods_indices=all_neighborhoods_indices, coordinate=current_coordinate, rand=rand)
 
-                # --- Variation ---
-                if not mutually_exclusive:
-                    # crossover
-                    if rand.random() < cx_rate:
-                        child = mate(p1.genome, p2.genome)
-                        is_changed = True
-                    else:
-                        child = p1.genome
+                    # Affinity-based selection of the second parent
+                    if affinity_function is not None:
+                        matchmaker_pool_preliminary = [ind for ind in population if not equal_individuals(ind.genome, p1.genome)]
+                        matchmaker_pool = [ind for ind in matchmaker_pool_preliminary if rand.random() < matchmaker_pool_rate]
+                        if len(matchmaker_pool) == 0:
+                            matchmaker_pool = matchmaker_pool_preliminary
+                        if len(matchmaker_pool) != 0:
+                            p2 = matchmaker_pool[0]
+                            best_affinity = -np.inf
+                            for ind in matchmaker_pool:
+                                affinity_cache_keys_pair = [str(p1.genome), str(ind.genome)]
+                                affinity_cache_keys_pair.sort()
+                                affinity_cache_key = (affinity_cache_keys_pair[0], affinity_cache_keys_pair[1])
+                                if affinity_cache_key not in affinity_values_cache:
+                                    affinity_values_cache[affinity_cache_key] = affinity_function(p1, ind)
+                                if affinity_values_cache[affinity_cache_key] > best_affinity:
+                                    p2 = ind
+                                    best_affinity = affinity_values_cache[affinity_cache_key]
+                    
+                    is_changed = False
+                    p1_genome = p1.genome
+                    p1_fitness = p1.fitness
+                    p1_spectrum = p1.spectrum
+                    p1_spectral_radius = p1.spectral_radius
 
-                    # mutation
-                    if rand.random() < mut_rate:
-                        child = mutate(child)
-                        is_changed = True
-                else:
-                    is_changed = True
-                    # crossover
-                    if rand.random() < cx_rate / (cx_rate + mut_rate):
-                        child = mate(p1.genome, p2.genome)
-                    # mutation
+                    # --- Variation ---
+                    if not mutually_exclusive:
+                        # crossover
+                        if rand.random() < cx_rate:
+                            child = mate(p1.genome, p2.genome)
+                            is_changed = True
+                        else:
+                            child = p1.genome
+
+                        # mutation
+                        if rand.random() < mut_rate:
+                            child = mutate(child)
+                            is_changed = True
                     else:
-                        child = mutate(p1.genome)
+                        is_changed = True
+                        # crossover
+                        if rand.random() < cx_rate / (cx_rate + mut_rate):
+                            child = mate(p1.genome, p2.genome)
+                        # mutation
+                        else:
+                            child = mutate(p1.genome)
+
+                    child_as_str = str(child)
+                    if duplicates_elimination_retry <= 0 or (duplicates_elimination_retry > 0 and child_as_str not in already_seen):
+                        already_seen.add(child_as_str)
+                        break
+                    else:
+                        retry_count += 1
+                        if retry_count >= duplicates_elimination_retry:
+                            # Accept duplicate after max retries
+                            break
 
                 if is_changed:
                     spectrum = walsh.apply(child)
-                    new_population.append(Individual(child, evaluate(spectrum[0]), spectrum[0], spectrum[1]))
+                    new_individual = Individual(child, evaluate(spectrum[0]), spectrum[0], spectrum[1])
                 else:
-                    new_population.append(Individual(p1_genome, p1_fitness, p1_spectrum, p1_spectral_radius))
-
+                    new_individual = Individual(p1_genome, p1_fitness, p1_spectrum, p1_spectral_radius)
+                
+                new_population.append(new_individual)
                 current_coordinate_index += 1
 
         # --- Elitism ---
@@ -427,20 +444,21 @@ def evolutionary_algorithm_programs(
         equal_individuals: Callable[[Any, Any], bool],
         rng: np.random.Generator,
         rand: random.Random,
-        cx_rate: float = 0.6,
-        mut_rate: float = 0.2,
-        save_fitness_list_for_each_gen: bool = False,
-        verbose: bool = False,
-        plateau_iter: int = 1000000,
-        mutually_exclusive: bool = False,
-        affinity_function: Callable[[IndividualProgram, IndividualProgram], float] | None = None,
-        matchmaker_pool_rate: float = 0.8,
+        cx_rate: float,
+        mut_rate: float,
+        save_fitness_list_for_each_gen: bool,
+        verbose: bool,
+        plateau_iter: int,
+        mutually_exclusive: bool,
+        duplicates_elimination_retry: int,
+        affinity_function: Callable[[IndividualProgram, IndividualProgram], float] | None,
+        matchmaker_pool_rate: float,
         # Cellular GA parameters
-        pressure: int = 2,
-        torus_dim: int = 0,
-        radius: int = 0,
-        pop_shape: tuple[int, ...] = (),
-        cmp_rate: float = 0.0,
+        pressure: int,
+        torus_dim: int,
+        radius: int,
+        pop_shape: tuple[int, ...],
+        cmp_rate: float,
 ) -> tuple[Any, np.ndarray, float, dict[str, Any]]:
     """
     Evolutionary algorithm with elitism, single-child crossover, and mutation.

@@ -77,7 +77,8 @@ def truth_tables_ea(
         cmp_rate: float,
         matchmaker_pool_rate: float,
         affinity_type: str,
-        save_fitness_list_for_each_gen: bool = False,
+        duplicates_elimination_retry: int,
+        save_fitness_list_for_each_gen: bool,
         verbose: bool = False
 ):
     rng = np.random.default_rng(seed)
@@ -182,6 +183,7 @@ def truth_tables_ea(
         mut_rate=0.5,
         mutually_exclusive=True,
         plateau_iter=50 * 10_000,
+        duplicates_elimination_retry=duplicates_elimination_retry,
         # Affinity parameters
         affinity_function=affinity_function,
         matchmaker_pool_rate=matchmaker_pool_rate,
@@ -300,7 +302,8 @@ def programs_ea(
         cmp_rate: float,
         matchmaker_pool_rate: float,
         affinity_type: str,
-        save_fitness_list_for_each_gen: bool = False,
+        duplicates_elimination_retry: int,
+        save_fitness_list_for_each_gen: bool,
         verbose: bool = False,
 ):
     if sum(sampling_probabilities) <= 0:
@@ -356,6 +359,7 @@ def programs_ea(
         mut_rate=0.5,
         mutually_exclusive=True,
         plateau_iter=50 * 10_000,
+        duplicates_elimination_retry=duplicates_elimination_retry,
         # Affinity parameters
         affinity_function=affinity_function,
         matchmaker_pool_rate=matchmaker_pool_rate,

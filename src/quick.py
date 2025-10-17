@@ -12,7 +12,7 @@ from method import *
 from walsh_transform import *
 
 
-def run_save_truth_tables_ea(n_bits, pop_size, n_iter, seed_index, pressure, torus_dim, radius, pop_shape, cmp_rate, matchmaker_pool_rate, affinity_type, save_fitness_list_for_each_gen, verbose):
+def run_save_truth_tables_ea(n_bits, pop_size, n_iter, seed_index, pressure, torus_dim, radius, pop_shape, cmp_rate, matchmaker_pool_rate, affinity_type, save_fitness_list_for_each_gen, duplicates_elimination_retry, verbose):
     try:
         seeds = random.Random(42).sample(range(1, 1_000_000 + 1), 1000)
         start_time = time.time()
@@ -29,13 +29,14 @@ def run_save_truth_tables_ea(n_bits, pop_size, n_iter, seed_index, pressure, tor
             matchmaker_pool_rate=matchmaker_pool_rate,
             affinity_type=affinity_type,
             save_fitness_list_for_each_gen=save_fitness_list_for_each_gen,
+            duplicates_elimination_retry=duplicates_elimination_retry,
             verbose=verbose,
         )
         end_time = time.time()
         execution_time_in_minutes = (end_time - start_time) / 60
         history["min_exec_time"] = [execution_time_in_minutes] * len(history["best_fitness"])
         history = pd.DataFrame(history)
-        history.to_csv(f'../results/pop{pop_size}_gen{n_iter}/ea_n_bits_{n_bits}_seed_{seed_index}_pressure_{pressure}_torus_{torus_dim}_radius_{radius}_cmp_{str(cmp_rate).replace(".", "d")}.csv', index=False, sep=',', decimal='.')
+        history.to_csv(f'../results/pop{pop_size}_gen{n_iter}_duplretry{duplicates_elimination_retry}/ea_n_bits_{n_bits}_seed_{seed_index}_pressure_{pressure}_torus_{torus_dim}_radius_{radius}_cmp_{str(cmp_rate).replace(".", "d")}.csv', index=False, sep=',', decimal='.')
         print(f"Completed run EA for n_bits={n_bits}, seed={seed_index}, pressure={pressure}, torus_dim={torus_dim}, radius={radius}, cmp_rate={cmp_rate} in {execution_time_in_minutes} minutes")
         return best_program, best_score, history
     except Exception as e:
@@ -46,7 +47,7 @@ def run_save_truth_tables_ea(n_bits, pop_size, n_iter, seed_index, pressure, tor
         return None, None, None
     
 
-def run_save_programs_ea(sampling_probabilities, init_bin_size, n_bits, pop_size, n_iter, pipeline_iter_step, seed_index, min_length, max_length, pressure, torus_dim, radius, pop_shape, cmp_rate, matchmaker_pool_rate, affinity_type, save_fitness_list_for_each_gen, verbose):
+def run_save_programs_ea(sampling_probabilities, init_bin_size, n_bits, pop_size, n_iter, pipeline_iter_step, seed_index, min_length, max_length, pressure, torus_dim, radius, pop_shape, cmp_rate, matchmaker_pool_rate, affinity_type, save_fitness_list_for_each_gen, duplicates_elimination_retry, verbose):
     try:
         seeds = random.Random(42).sample(range(1, 1_000_000 + 1), 1000)
         start_time = time.time()
@@ -68,14 +69,15 @@ def run_save_programs_ea(sampling_probabilities, init_bin_size, n_bits, pop_size
             matchmaker_pool_rate=matchmaker_pool_rate,
             affinity_type=affinity_type,
             save_fitness_list_for_each_gen=save_fitness_list_for_each_gen,
+            duplicates_elimination_retry=duplicates_elimination_retry,
             verbose=verbose,
         )
         end_time = time.time()
         execution_time_in_minutes = (end_time - start_time) / 60
         history["min_exec_time"] = [execution_time_in_minutes] * len(history["best_fitness"])
         history = pd.DataFrame(history)
-        history.to_csv(f'../results/pop{pop_size}_gen{n_iter}/ea_programs_n_bits_{n_bits}_seed_{seed_index}_pressure_{pressure}_torus_{torus_dim}_radius_{radius}_cmp_{str(cmp_rate).replace(".", "d")}_len_{min_length}_{max_length}_pipeiter_{pipeline_iter_step}_initbin_{init_bin_size}.csv', index=False, sep=',', decimal='.')
-        with open(f'../results/pop{pop_size}_gen{n_iter}/best_ea_programs_n_bits_{n_bits}_seed_{seed_index}_pressure_{pressure}_torus_{torus_dim}_radius_{radius}_cmp_{str(cmp_rate).replace(".", "d")}_len_{min_length}_{max_length}_pipeiter_{pipeline_iter_step}_initbin_{init_bin_size}.txt', 'w') as f:
+        history.to_csv(f'../results/pop{pop_size}_gen{n_iter}_duplretry{duplicates_elimination_retry}/ea_programs_n_bits_{n_bits}_seed_{seed_index}_pressure_{pressure}_torus_{torus_dim}_radius_{radius}_cmp_{str(cmp_rate).replace(".", "d")}_len_{min_length}_{max_length}_pipeiter_{pipeline_iter_step}_initbin_{init_bin_size}.csv', index=False, sep=',', decimal='.')
+        with open(f'../results/pop{pop_size}_gen{n_iter}_duplretry{duplicates_elimination_retry}/best_ea_programs_n_bits_{n_bits}_seed_{seed_index}_pressure_{pressure}_torus_{torus_dim}_radius_{radius}_cmp_{str(cmp_rate).replace(".", "d")}_len_{min_length}_{max_length}_pipeiter_{pipeline_iter_step}_initbin_{init_bin_size}.txt', 'w') as f:
             f.write(str(best_program))
         print(f"Completed run EA Programs for n_bits={n_bits}, seed={seed_index}, pressure={pressure}, torus_dim={torus_dim}, radius={radius}, cmp_rate={cmp_rate} len={min_length}_{max_length} pipeiter={pipeline_iter_step} initbin={init_bin_size} in {execution_time_in_minutes} minutes")
         return best_program, original_truth_table, best_score, history
@@ -300,7 +302,8 @@ if __name__ == "__main__":
                 {
                     "n_bits": nb, "pop_size": pop_size, "n_iter": n_iter, "seed_index": sd_index,
                     "pressure": pressure, "torus_dim": 0, "radius": 0, "pop_shape": tuple(), "cmp_rate": 0.0,
-                    "matchmaker_pool_rate": matchmaker_pool_rate, "affinity_type": affinity_type, "verbose": verbose
+                    "matchmaker_pool_rate": matchmaker_pool_rate, "affinity_type": affinity_type, "verbose": verbose,
+                    "save_fitness_list_for_each_gen": False, "duplicates_elimination_retry": 0
                 }
             )
             for radius in [1, 2, 3]:
@@ -310,7 +313,8 @@ if __name__ == "__main__":
                         {
                             "n_bits": nb, "pop_size": pop_size, "n_iter": n_iter, "seed_index": sd_index,
                             "pressure": 0, "torus_dim": 2, "radius": radius, "pop_shape": (10, 10), "cmp_rate": cmp_rate,
-                            "matchmaker_pool_rate": matchmaker_pool_rate, "affinity_type": affinity_type, "verbose": verbose
+                            "matchmaker_pool_rate": matchmaker_pool_rate, "affinity_type": affinity_type, "verbose": verbose,
+                            "save_fitness_list_for_each_gen": False, "duplicates_elimination_retry": 0
                         }
                     )
 
@@ -347,7 +351,8 @@ if __name__ == "__main__":
                                 "min_length": min_length,
                                 "max_length": max_length,
                                 "pressure": pressure, "torus_dim": 0, "radius": 0, "pop_shape": tuple(), "cmp_rate": 0.0,
-                                "matchmaker_pool_rate": matchmaker_pool_rate, "affinity_type": affinity_type, "verbose": verbose
+                                "matchmaker_pool_rate": matchmaker_pool_rate, "affinity_type": affinity_type, "verbose": verbose,
+                                "save_fitness_list_for_each_gen": False, "duplicates_elimination_retry": 0
                             }
                         )
 
