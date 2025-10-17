@@ -2,7 +2,7 @@
 params/
 results/
 run_with_exceptions/
-analysis/img/
+analysis/
 slurm/
 
 

@@ -228,6 +228,7 @@ def evolutionary_algorithm_truth_tables(
         rand: random.Random,
         cx_rate: float = 0.6,
         mut_rate: float = 0.2,
+        save_fitness_list_for_each_gen: bool = False,
         verbose: bool = False,
         plateau_iter: int = 1000000,
         mutually_exclusive: bool = False,
@@ -280,6 +281,9 @@ def evolutionary_algorithm_truth_tables(
     #history['vanilla_global_moran_I'] = [global_moran_I([ind.spectrum for ind in population], w=one_matrix_zero_diagonal(pop_size))]
     history['real_global_moran_I'] = [global_moran_I([ind.spectrum for ind in population], w=weights_matrix_moran)]
     #history['diversity_median'] = [compute_euclidean_diversity_all_distinct_distances([ind.spectrum for ind in population], measure='median')]
+
+    if save_fitness_list_for_each_gen:
+        history['pop_fitness_list'] = [" ".join([str(ind.fitness) for ind in population])]
 
     if isinstance(population[0].genome, np.ndarray) and not check_all_truth_tables_are_balanced([ind.genome for ind in population]):
         raise ValueError(f"Not all truth tables are balanced. Gen {'Initialization'}.")
@@ -401,6 +405,9 @@ def evolutionary_algorithm_truth_tables(
         history['real_global_moran_I'].append(global_moran_I([ind.spectrum for ind in population], w=weights_matrix_moran))
         #history['diversity_median'].append(compute_euclidean_diversity_all_distinct_distances([ind.spectrum for ind in population], measure='median'))
 
+        if save_fitness_list_for_each_gen:
+            history['pop_fitness_list'].append(" ".join([str(ind.fitness) for ind in population]))
+
         if isinstance(population[0].genome, np.ndarray) and not check_all_truth_tables_are_balanced([ind.genome for ind in population]):
             raise ValueError(f"Not all truth tables are balanced. Gen {curr_iter}.")
 
@@ -422,6 +429,7 @@ def evolutionary_algorithm_programs(
         rand: random.Random,
         cx_rate: float = 0.6,
         mut_rate: float = 0.2,
+        save_fitness_list_for_each_gen: bool = False,
         verbose: bool = False,
         plateau_iter: int = 1000000,
         mutually_exclusive: bool = False,
@@ -511,6 +519,9 @@ def evolutionary_algorithm_programs(
     #history['diversity_median'] = [compute_euclidean_diversity_all_distinct_distances([ind.spectrum for ind in population], measure='median')]
 
     history["initial_truth_table_block_str"] = [temp_base_truth_table_as_str]
+
+    if save_fitness_list_for_each_gen:
+        history['pop_fitness_list'] = [" ".join([str(ind.fitness) for ind in population])]
 
     if isinstance(population[0].genome, np.ndarray) and not check_all_truth_tables_are_balanced([ind.genome for ind in population]):
         raise ValueError(f"Not all truth tables are balanced. Gen {'Initialization'}.")
@@ -648,6 +659,9 @@ def evolutionary_algorithm_programs(
         #history['diversity_median'].append(compute_euclidean_diversity_all_distinct_distances([ind.spectrum for ind in population], measure='median'))
 
         history["initial_truth_table_block_str"].append(temp_base_truth_table_as_str)
+
+        if save_fitness_list_for_each_gen:
+            history['pop_fitness_list'].append(" ".join([str(ind.fitness) for ind in population]))
 
         if isinstance(population[0].genome, np.ndarray) and not check_all_truth_tables_are_balanced([ind.genome for ind in population]):
             raise ValueError(f"Not all truth tables are balanced. Gen {curr_iter}.")

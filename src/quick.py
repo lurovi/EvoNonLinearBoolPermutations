@@ -12,7 +12,7 @@ from method import *
 from walsh_transform import *
 
 
-def run_save_truth_tables_ea(n_bits, pop_size, n_iter, seed_index, pressure, torus_dim, radius, pop_shape, cmp_rate, matchmaker_pool_rate, affinity_type, verbose):
+def run_save_truth_tables_ea(n_bits, pop_size, n_iter, seed_index, pressure, torus_dim, radius, pop_shape, cmp_rate, matchmaker_pool_rate, affinity_type, save_fitness_list_for_each_gen, verbose):
     try:
         seeds = random.Random(42).sample(range(1, 1_000_000 + 1), 1000)
         start_time = time.time()
@@ -28,13 +28,14 @@ def run_save_truth_tables_ea(n_bits, pop_size, n_iter, seed_index, pressure, tor
             cmp_rate=cmp_rate,
             matchmaker_pool_rate=matchmaker_pool_rate,
             affinity_type=affinity_type,
+            save_fitness_list_for_each_gen=save_fitness_list_for_each_gen,
             verbose=verbose,
         )
         end_time = time.time()
         execution_time_in_minutes = (end_time - start_time) / 60
         history["min_exec_time"] = [execution_time_in_minutes] * len(history["best_fitness"])
         history = pd.DataFrame(history)
-        history.to_csv(f'../results/pop{pop_size}_gen{n_iter}/ea_n_bits_{n_bits}_seed_{seed_index}_pressure_{pressure}_torus_{torus_dim}_radius_{radius}_cmp_{str(cmp_rate).replace(".", "d")}.csv', index=False)
+        history.to_csv(f'../results/pop{pop_size}_gen{n_iter}/ea_n_bits_{n_bits}_seed_{seed_index}_pressure_{pressure}_torus_{torus_dim}_radius_{radius}_cmp_{str(cmp_rate).replace(".", "d")}.csv', index=False, sep=',', decimal='.')
         print(f"Completed run EA for n_bits={n_bits}, seed={seed_index}, pressure={pressure}, torus_dim={torus_dim}, radius={radius}, cmp_rate={cmp_rate} in {execution_time_in_minutes} minutes")
         return best_program, best_score, history
     except Exception as e:
@@ -45,7 +46,7 @@ def run_save_truth_tables_ea(n_bits, pop_size, n_iter, seed_index, pressure, tor
         return None, None, None
     
 
-def run_save_programs_ea(sampling_probabilities, init_bin_size, n_bits, pop_size, n_iter, pipeline_iter_step, seed_index, min_length, max_length, pressure, torus_dim, radius, pop_shape, cmp_rate, matchmaker_pool_rate, affinity_type, verbose):
+def run_save_programs_ea(sampling_probabilities, init_bin_size, n_bits, pop_size, n_iter, pipeline_iter_step, seed_index, min_length, max_length, pressure, torus_dim, radius, pop_shape, cmp_rate, matchmaker_pool_rate, affinity_type, save_fitness_list_for_each_gen, verbose):
     try:
         seeds = random.Random(42).sample(range(1, 1_000_000 + 1), 1000)
         start_time = time.time()
@@ -66,13 +67,14 @@ def run_save_programs_ea(sampling_probabilities, init_bin_size, n_bits, pop_size
             cmp_rate=cmp_rate,
             matchmaker_pool_rate=matchmaker_pool_rate,
             affinity_type=affinity_type,
+            save_fitness_list_for_each_gen=save_fitness_list_for_each_gen,
             verbose=verbose,
         )
         end_time = time.time()
         execution_time_in_minutes = (end_time - start_time) / 60
         history["min_exec_time"] = [execution_time_in_minutes] * len(history["best_fitness"])
         history = pd.DataFrame(history)
-        history.to_csv(f'../results/pop{pop_size}_gen{n_iter}/ea_programs_n_bits_{n_bits}_seed_{seed_index}_pressure_{pressure}_torus_{torus_dim}_radius_{radius}_cmp_{str(cmp_rate).replace(".", "d")}_len_{min_length}_{max_length}_pipeiter_{pipeline_iter_step}_initbin_{init_bin_size}.csv', index=False)
+        history.to_csv(f'../results/pop{pop_size}_gen{n_iter}/ea_programs_n_bits_{n_bits}_seed_{seed_index}_pressure_{pressure}_torus_{torus_dim}_radius_{radius}_cmp_{str(cmp_rate).replace(".", "d")}_len_{min_length}_{max_length}_pipeiter_{pipeline_iter_step}_initbin_{init_bin_size}.csv', index=False, sep=',', decimal='.')
         with open(f'../results/pop{pop_size}_gen{n_iter}/best_ea_programs_n_bits_{n_bits}_seed_{seed_index}_pressure_{pressure}_torus_{torus_dim}_radius_{radius}_cmp_{str(cmp_rate).replace(".", "d")}_len_{min_length}_{max_length}_pipeiter_{pipeline_iter_step}_initbin_{init_bin_size}.txt', 'w') as f:
             f.write(str(best_program))
         print(f"Completed run EA Programs for n_bits={n_bits}, seed={seed_index}, pressure={pressure}, torus_dim={torus_dim}, radius={radius}, cmp_rate={cmp_rate} len={min_length}_{max_length} pipeiter={pipeline_iter_step} initbin={init_bin_size} in {execution_time_in_minutes} minutes")
@@ -313,7 +315,7 @@ if __name__ == "__main__":
                     )
 
     _ = process_pool_parallelize(run_save_truth_tables_ea, all_jobs_params, num_workers=-2)
-    
+
     print('================================== MASSIVE EXP PROGS ================================')
     #n_bits = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
     #n_bits = [5, 6, 7, 8, 9]
