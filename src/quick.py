@@ -284,15 +284,16 @@ if __name__ == "__main__":
     #n_bits = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
     #n_bits = [5, 6, 7, 8, 9]
     #n_bits = [10, 11, 12]
-    n_bits = [13, 14, 15, 16]
-    seed_indexes = list(range(1, 30 + 1))
+    #n_bits = [13, 14, 15, 16]
+    n_bits = [14]
+    seed_indexes = list(range(14, 14 + 1))
 
     pop_size = 100
     n_iter = 1000
     pressure = 4
     matchmaker_pool_rate = 0.0
     affinity_type = 'random'
-    verbose = False
+    verbose = True
 
     all_jobs_params = []
 
@@ -303,23 +304,23 @@ if __name__ == "__main__":
                     "n_bits": nb, "pop_size": pop_size, "n_iter": n_iter, "seed_index": sd_index,
                     "pressure": pressure, "torus_dim": 0, "radius": 0, "pop_shape": tuple(), "cmp_rate": 0.0,
                     "matchmaker_pool_rate": matchmaker_pool_rate, "affinity_type": affinity_type, "verbose": verbose,
-                    "save_fitness_list_for_each_gen": False, "duplicates_elimination_retry": 0
+                    "save_fitness_list_for_each_gen": True, "duplicates_elimination_retry": 0
                 }
             )
-            for radius in [1, 2, 3]:
-                for cmp_rate in [0.25, 0.5, 0.75, 1.0]:
+            # for radius in [1, 2, 3]:
+            #     for cmp_rate in [0.25, 0.5, 0.75, 1.0]:
 
-                    all_jobs_params.append(
-                        {
-                            "n_bits": nb, "pop_size": pop_size, "n_iter": n_iter, "seed_index": sd_index,
-                            "pressure": 0, "torus_dim": 2, "radius": radius, "pop_shape": (10, 10), "cmp_rate": cmp_rate,
-                            "matchmaker_pool_rate": matchmaker_pool_rate, "affinity_type": affinity_type, "verbose": verbose,
-                            "save_fitness_list_for_each_gen": False, "duplicates_elimination_retry": 0
-                        }
-                    )
+            #         all_jobs_params.append(
+            #             {
+            #                 "n_bits": nb, "pop_size": pop_size, "n_iter": n_iter, "seed_index": sd_index,
+            #                 "pressure": 0, "torus_dim": 2, "radius": radius, "pop_shape": (10, 10), "cmp_rate": cmp_rate,
+            #                 "matchmaker_pool_rate": matchmaker_pool_rate, "affinity_type": affinity_type, "verbose": verbose,
+            #                 "save_fitness_list_for_each_gen": True, "duplicates_elimination_retry": 0
+            #             }
+            #         )
 
-    _ = process_pool_parallelize(run_save_truth_tables_ea, all_jobs_params, num_workers=-2)
-
+    _ = process_pool_parallelize(run_save_truth_tables_ea, all_jobs_params, num_workers=1)
+    quit()
     print('================================== MASSIVE EXP PROGS ================================')
     #n_bits = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
     #n_bits = [5, 6, 7, 8, 9]

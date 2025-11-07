@@ -35,6 +35,7 @@ class WalshTransform:
                         return max_resiliency_found_so_far
         else:
             return max_resiliency_found_so_far
+        return -1
 
     def correlation_immunity(self, spectrum: np.ndarray, tol: float = 1e-9) -> int:
         size = 1 << self.__domain.number_of_bits()

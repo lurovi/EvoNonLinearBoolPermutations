@@ -8,7 +8,7 @@ from typing import Any
 from selection import tournament
 from walsh_transform import WalshTransform
 
-from generator import Individual, IndividualProgram, clone_program, execute_program, generate_alternate_balanced_binary_vector_one_zero
+from generator import Individual, IndividualProgram, clone_program, execute_program, generate_alternate_balanced_binary_vector_one_zero, generate_random_balanced_binary_vector
 from cellular.factory.NeighborsTopologyFactory import NeighborsTopologyFactory
 from cellular.support import compute_all_possible_neighborhoods, create_neighbors_topology_factory, global_moran_I, compute_euclidean_diversity_all_distinct_distances, one_matrix_zero_diagonal, simple_selection_process, weights_matrix_for_morans_I
 
@@ -476,7 +476,12 @@ def evolutionary_algorithm_programs(
     if init_bin_size < 0:
         raise ValueError("init_bin_size must be non-negative.")
     if init_bin_size == 0:
+        # generate a balanced truth table
         base_truth_table = generate_alternate_balanced_binary_vector_one_zero(walsh.domain().space_cardinality())
+    elif init_bin_size == 1:
+        # generate a random balanced truth table
+        base_truth_table = generate_random_balanced_binary_vector(walsh.domain().space_cardinality(), rng)
+        temp_base_truth_table_as_str = "1" if base_truth_table[0] == 1 else "0"
     else:
         # Check if init_bin_size is a power of two
         if (init_bin_size & (init_bin_size - 1)) != 0:
