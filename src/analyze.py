@@ -1054,8 +1054,8 @@ def boxplot_grid_shuffle_programs(
 ):
     metric_alias = {'granular_best_fitness': r'$\tilde{\overline{\ell}}$', 'best_fitness': r'$\overline{\ell}$', 'best_resiliency': r'$r$', 'best_algebraic_degree': r'$d$', 'best_max_autocorrelation_coefficient': r'$a$', 'real_global_moran_I': r'$I$'}
 
-    n_bits = list(range(8, 16 + 1))
-    init_bin_size = 16
+    n_bits = [9, 10, 11, 12, 13, 14] # list(range(8, 16 + 1))
+    init_bin_size = 1
     dataframes_dict = {}
     significance_dict = {}
 
@@ -1072,7 +1072,7 @@ def boxplot_grid_shuffle_programs(
         curr_dataframe_dict[metric_alias[metric]].extend(base_values)
         # programs
         for p in [10, 50, 100]:# [100, 200, 500]:
-            for min_, max_ in [(2, 10), (2, 50), (2, 100)]:#[(2, 5), (2, 10), (2, 20)]:
+            for min_, max_ in [(2, 100), (2, 500), (2, 1000)]:#[(2, 5), (2, 10), (2, 20)]:
                 method = f'{p}'
                 if method not in signif:
                     signif[method] = {}
@@ -1105,9 +1105,9 @@ def boxplot_grid_shuffle_programs(
 
 
 def my_callback_boxplot_grid_shuffle_programs(data: dict[str, pd.DataFrame], significance_dict: dict[str, dict[str, dict[str, bool]]], y_title: str, palette_length: dict[str, str]): 
-    n, m = 3, 3
+    n, m = 2, 3
     fig, ax = plt.subplots(n, m, figsize=(15, 10), layout='tight', squeeze=False)
-    n_bits = np.array(list(range(8, 16 + 1))).reshape(n, m)
+    n_bits = np.array([9, 10, 11, 12, 13, 14]).reshape(n, m)
     for i in range(n):
         for j in range(m):
             nb = str(n_bits[i, j])
@@ -1369,16 +1369,16 @@ def main_truth_tables():
 def main_programs():
     palette = {'GA': "#360983", '10': "#BCEC0E", '50': "#a61111", '100': "#14D4DB"}
     
-    palette_length = {'GA': "#360983", '2_10': "#ECF26E", '2_50': "#A1A726", '2_100': "#555905"}
-    palette_l = {'GA': "#360983", r'2_10': "#ECF26E", r'2_50': "#A1A726", r'2_100': "#555905"}
+    palette_length = {'GA': "#360983", '2_100': "#ECF26E", '2_500': "#A1A726", '2_1000': "#555905"}
+    palette_l = {'GA': "#360983", r'2_100': "#ECF26E", r'2_500': "#A1A726", r'2_1000': "#555905"}
 
-    n_bits = list(range(8, 16 + 1))
+    n_bits = [9, 10, 11, 12, 13, 14] # list(range(8, 16 + 1))
     seed_indexes = list(range(1, 30 + 1))
     pressure = 3
     pop_size = 50
     n_iter = 10000
-    init_bin_size = 16
-    lengths = [(2, 10), (2, 50), (2, 100)]
+    init_bin_size = 1
+    lengths = [(2, 100), (2, 500), (2, 1000)]
     pipeline_iter_steps = [10, 50, 100]
     gens = [200 - 1, 400 - 1, 500 - 1, 1000 - 1]
     results_folder = '../results/'
