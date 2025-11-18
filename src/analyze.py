@@ -765,9 +765,9 @@ def boxplot_grid_cellular_truth_tables(
     #                      callback=lambda plt: my_callback_boxplot_grid_cellular_truth_tables(plt, dataframes_dict, significance_dict, metric_alias[metric], palette_cmp),
     #                      style='latex', **PLOT_ARGS)
     plot = my_callback_boxplot_grid_cellular_truth_tables(dataframes_dict, significance_dict, metric_alias[metric], palette_cmp)
+    plot.savefig(f'../analysis/img/cellular_boxplot_{metric}_gen{str(gen)}.pdf', dpi=dpi)
     if save_png:
         plot.savefig(f'../analysis/img/cellular_boxplot_{metric}_gen{str(gen)}.png', dpi=dpi)
-    plot.savefig(f'../analysis/img/cellular_boxplot_{metric}_gen{str(gen)}.pdf', dpi=dpi)
     plt.clf()
     plt.cla()
     plt.close()
@@ -802,6 +802,11 @@ def my_callback_boxplot_grid_cellular_truth_tables(data: dict[str, pd.DataFrame]
 
             sns.boxplot(data=df, x="Method", y=y_title, hue=r"$p$", palette=palette_cmp, ax=ax[i, j], showfliers=False,
                         legend=False, fliersize=2.0, log_scale=None)
+            
+            # increase thickness of median and quartile lines and also of the box edges
+            for line in ax[i, j].artists + ax[i, j].lines:
+                line.set_linewidth(1.8)
+                line.set_color('black')
 
             # if we computed sensible local bounds, add a small padding to prevent clipping
             if np.isfinite(local_min) and np.isfinite(local_max):
@@ -854,9 +859,9 @@ def my_callback_boxplot_grid_cellular_truth_tables(data: dict[str, pd.DataFrame]
                             # transform data x to display coords, then to axes coords
                             x_disp, _ = ax[i, j].transData.transform((x_data, 0))
                             x_axes = ax[i, j].transAxes.inverted().transform((x_disp, 0))[0]
-                            y_axes_fixed = 0.03
+                            y_axes_fixed = 0.1
                             ax[i, j].text(x_axes, y_axes_fixed, r'\textbf{*}', transform=ax[i, j].transAxes,
-                                          ha='center', va='center', fontsize=28, color='black', clip_on=False)
+                                          ha='center', va='center', fontsize=32, color='black', clip_on=False)
                         except Exception:
                             # fallback: place using data coords near bottom of axis
                             vals = df[(df['Method'] == method_label) & (df[r"$p$"] == str(hue_str))][y_title].dropna()
@@ -866,7 +871,7 @@ def my_callback_boxplot_grid_cellular_truth_tables(data: dict[str, pd.DataFrame]
                             yrange = max((y1 - y0), 1e-6)
                             stagger = (hi - (n_hues - 1) / 2.0) * 0.02 * yrange
                             y_coord = y0 + 0.02 * yrange + stagger
-                            ax[i, j].text(x_data, y_coord, r'\textbf{*}', ha='center', va='bottom', fontsize=28, color='black', clip_on=False)
+                            ax[i, j].text(x_data, y_coord, r'\textbf{*}', ha='center', va='bottom', fontsize=32, color='black', clip_on=False)
             except Exception:
                 # keep plotting even if annotations fail
                 pass
@@ -898,6 +903,7 @@ def create_legend(label_color_dict, title=None):
     #               callback=lambda plt: create_legend_callback(plt, label_color_dict, title),
     #               style='latex', **PLOT_ARGS)
     plot = create_legend_callback(label_color_dict, title)
+    plot.savefig(f'../analysis/img/legend.png', dpi=800)
     plot.savefig(f'../analysis/img/legend.pdf', dpi=800)
     plt.clf()
     plt.cla()
@@ -1023,14 +1029,18 @@ def my_callback_heatmap(vmin: float, vmax: float, all_histories: dict, gens: lis
 def make_colorbar(vmin, vmax):
     #fastplot.plot(None, f'../analysis/img/colorbar.pdf', mode='callback', callback=lambda plt: my_callback_colorbar(plt, vmin, vmax), style='latex', **PLOT_ARGS)
     plot = my_callback_colorbar(vmin, vmax)
+    plot.savefig(f'../analysis/img/colorbar.png', dpi=800)
     plot.savefig(f'../analysis/img/colorbar.pdf', dpi=800)
     plt.clf()
     plt.cla()
     plt.close()
 
 def my_callback_colorbar(vmin, vmax):
-    fig, ax = plt.subplots(figsize=(1.2, 8))
-    fig.subplots_adjust(bottom=0.5)
+    fig, ax = plt.subplots(figsize=(1.1, 10), layout='constrained')
+    #fig.subplots_adjust(bottom=0.5)
+    # Add a bit more white space on the left with constrained layout
+    # rect = [left, bottom, right, top] in figure coordinates
+    fig.get_layout_engine().set(w_pad=4/72, h_pad=4/72, hspace=0.05, wspace=0.05, rect=[0.01, 0, 0.95, 1]) # type: ignore
 
     cmap = plt.get_cmap('inferno')
     norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
@@ -1263,109 +1273,6 @@ def print_table_max_and_med_non_linearity(data: dict, dupl_retry: int, gen: int,
 # Main
 # =====================================
 
-def main_truth_tables():
-    palette = {'0': "#B60000", '1': "#06BC4F", '2': "#b10984", '3': "#5620bc"}
-    palette_toroid = {r'\notoroid': "#B60000", r'\toroid{2}{1}': "#06BC4F", r'\toroid{2}{2}': "#b10984", r'\toroid{2}{3}': "#5620bc"}
-    
-    palette_cmp = {'0.0': "#B60000", '0.25': "#BCB8F7", '0.5': "#594fe7", '0.75': "#2d1bcc", '1.0': "#020270"}
-    palette_p = {r'$p = 0.25$': "#BCB8F7", r'$p = 0.5$': "#594fe7", r'$p = 0.75$': "#2d1bcc", r'$p = 1.0$': "#020270"}
-
-    n_bits = list(range(8, 16 + 1))
-    seed_indexes = list(range(1, 50 + 1))
-    pressure = 4
-    pop_size = 100
-    n_iter = 1000
-    dupl_retry = 10
-    torus_dim = 2
-    radius = [1, 2, 3]
-    cmp_rate = [0.25, 0.5, 0.75, 1.0]
-    gens = [200 - 1, 400 - 1, 500 - 1, 1000 - 1]
-    results_folder = '../results/'
-    persist = True
-    
-    # _ = persist_dict_with_aggregated_metric_for_truth_tables_for_all_generations(
-    #      results_folder,
-    #      pop_size,
-    #      n_iter,
-    #      dupl_retry,
-    #      n_bits,
-    #      seed_indexes,
-    #      pressure,
-    #      torus_dim,
-    #      radius,
-    #      cmp_rate,
-    #      persist
-    # )
-    # _ = persist_dict_with_distribution_metric_for_truth_tables_for_all_repetitions_fixed_generation(
-    #      results_folder,
-    #      pop_size,
-    #      n_iter,
-    #      dupl_retry,
-    #      n_bits,
-    #      gens,
-    #      seed_indexes,
-    #      pressure,
-    #      torus_dim,
-    #      radius,
-    #      cmp_rate,
-    #      persist
-    # )
-    #create_legend(palette_p)
-    #quit()
-    with open('../analysis/aggregated_metrics_over_generations_truth_tables_pop100_gen1000.json', 'r') as f:
-        data = json.load(f)
-        
-    with open('../analysis/distribution_metrics_fixed_generation_truth_tables_pop100_gen1000.json', 'r') as f:
-        data_box = json.load(f)
-
-    # vmin, vmax = heatmap(
-    #     results_folder=results_folder,
-    #     n_bits=16,
-    #     gens=[1, 5, 10, 500, 999],
-    #     dupl_retry=dupl_retry,
-    #     radius=[1, 2, 3],
-    #     cmp_rate=0.5,
-    #     pop_size=pop_size,
-    #     num_gen=n_iter,
-    #     pressure=pressure,
-    #     torus_dim=torus_dim,
-    #     pop_shape=(10, 10),
-    #     seed_index=49,
-    #     save_png=False,
-    #     dpi=800,
-    # )
-    # make_colorbar(vmin, vmax)
-    # print_table_max_and_med_non_linearity(
-    #     data=data_box,
-    #     dupl_retry=dupl_retry,
-    #     gen=999,
-    #     torus_dim=torus_dim,
-    #     radius=1,
-    #     cmp_rate=0.5
-    # )
-    # quit()
-    for metric in ['best_fitness', 'pop_med_fitness', 'real_global_moran_I']:
-        for cr in [0.5]:
-            lineplot_grid_over_generations_cellular_truth_tables(
-                data,
-                metric=metric,
-                cmp_rate=cr,
-                palette=palette,
-                save_png=False,
-                dpi=800
-            )
-    quit()
-    boxplot_grid_cellular_truth_tables(
-        data=data_box,
-        baseline_vs_baseline10retry=False,
-        metric='best_fitness',
-        gen=999,
-        palette_cmp=palette_cmp,
-        save_png=False,
-        dpi=800
-    )
-
-
 def main_programs():
     palette = {'GA': "#360983", '10': "#BCEC0E", '50': "#a61111", '100': "#14D4DB"}
     
@@ -1464,6 +1371,111 @@ def main_programs():
     )
 
 
+def main_truth_tables():
+    palette = {'0': "#B60000", '1': "#06BC4F", '2': "#b10984", '3': "#5620bc"}
+    palette_toroid = {r'\notoroid': "#B60000", r'\toroid{2}{1}': "#06BC4F", r'\toroid{2}{2}': "#b10984", r'\toroid{2}{3}': "#5620bc"}
+    
+    palette_cmp = {'0.0': "#B60000", '0.25': "#BCB8F7", '0.5': "#594fe7", '0.75': "#2d1bcc", '1.0': "#020270"}
+    palette_p = {r'$p = 0.25$': "#BCB8F7", r'$p = 0.5$': "#594fe7", r'$p = 0.75$': "#2d1bcc", r'$p = 1.0$': "#020270"}
+
+    n_bits = list(range(8, 16 + 1))
+    seed_indexes = list(range(1, 50 + 1))
+    pressure = 4
+    pop_size = 100
+    n_iter = 1000
+    dupl_retry = 10
+    torus_dim = 2
+    radius = [1, 2, 3]
+    cmp_rate = [0.25, 0.5, 0.75, 1.0]
+    gens = [200 - 1, 400 - 1, 500 - 1, 1000 - 1]
+    results_folder = '../results/'
+    persist = True
+    
+    # _ = persist_dict_with_aggregated_metric_for_truth_tables_for_all_generations(
+    #      results_folder,
+    #      pop_size,
+    #      n_iter,
+    #      dupl_retry,
+    #      n_bits,
+    #      seed_indexes,
+    #      pressure,
+    #      torus_dim,
+    #      radius,
+    #      cmp_rate,
+    #      persist
+    # )
+    # _ = persist_dict_with_distribution_metric_for_truth_tables_for_all_repetitions_fixed_generation(
+    #      results_folder,
+    #      pop_size,
+    #      n_iter,
+    #      dupl_retry,
+    #      n_bits,
+    #      gens,
+    #      seed_indexes,
+    #      pressure,
+    #      torus_dim,
+    #      radius,
+    #      cmp_rate,
+    #      persist
+    # )
+    # create_legend(palette_toroid)
+    # quit()
+    with open('../analysis/aggregated_metrics_over_generations_truth_tables_pop100_gen1000.json', 'r') as f:
+        data = json.load(f)
+        
+    with open('../analysis/distribution_metrics_fixed_generation_truth_tables_pop100_gen1000.json', 'r') as f:
+        data_box = json.load(f)
+
+    vmin, vmax = heatmap(
+        results_folder=results_folder,
+        n_bits=16,
+        gens=[1, 5, 10, 500, 999],
+        dupl_retry=dupl_retry,
+        radius=[1, 2, 3],
+        cmp_rate=0.5,
+        pop_size=pop_size,
+        num_gen=n_iter,
+        pressure=pressure,
+        torus_dim=torus_dim,
+        pop_shape=(10, 10),
+        seed_index=49,
+        save_png=True,
+        dpi=800,
+    )
+    make_colorbar(vmin, vmax)
+    # print_table_max_and_med_non_linearity(
+    #     data=data_box,
+    #     dupl_retry=dupl_retry,
+    #     gen=999,
+    #     torus_dim=torus_dim,
+    #     radius=1,
+    #     cmp_rate=0.5
+    # )
+    # quit()
+    # for metric in ['best_fitness', 'pop_med_fitness', 'real_global_moran_I']:
+    #     for cr in [0.5]:
+    #         lineplot_grid_over_generations_cellular_truth_tables(
+    #             data,
+    #             metric=metric,
+    #             cmp_rate=cr,
+    #             palette=palette,
+    #             save_png=True,
+    #             dpi=800
+    #         )
+    quit()
+    boxplot_grid_cellular_truth_tables(
+        data=data_box,
+        baseline_vs_baseline10retry=False,
+        metric='best_fitness',
+        gen=999,
+        palette_cmp=palette_cmp,
+        save_png=True,
+        dpi=800
+    )
+
+
+
+
 if __name__ == "__main__":
-    # main_truth_tables()
-    main_programs()
+    main_truth_tables()
+    # main_programs()
