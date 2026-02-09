@@ -535,7 +535,7 @@ def my_callback_lineplot_grid_over_generations_cellular_truth_tables(data: dict,
     
     n, m = 3, 3
     radius = ["1", "2", "3"]
-    fig, ax = plt.subplots(n, m, figsize=(16, 10), layout='constrained', squeeze=False)
+    fig, ax = plt.subplots(n, m, figsize=(20, 20), layout='constrained', squeeze=False)
     # Add a bit more white space on the left with constrained layout
     # rect = [left, bottom, right, top] in figure coordinates
     fig.get_layout_engine().set(w_pad=4/72, h_pad=4/72, hspace=0.05, wspace=0.05, rect=[0.01, 0, 0.98, 1]) # type: ignore
@@ -548,7 +548,7 @@ def my_callback_lineplot_grid_over_generations_cellular_truth_tables(data: dict,
         for j in range(m):
             nb = str(n_bits[i, j])
             curr_data = data[nb][metric]
-            ax[i, j].set_title(f'$n = {nb}$', fontsize=24)
+            ax[i, j].set_title(f'$n = {nb}$', fontsize=50)
             # baseline + torus methods
             # keep track of min/max values (use q1/q3 if available) so we can add a small padding
             local_min = np.inf
@@ -558,7 +558,7 @@ def my_callback_lineplot_grid_over_generations_cellular_truth_tables(data: dict,
             y = np.array(curr_data[method]['median'])
             q1 = np.array(curr_data[method]['q1']) if metric != "pop_med_fitness" else np.array(data[nb]['pop_q1_fitness'][method]['median'])
             q3 = np.array(curr_data[method]['q3']) if metric != "pop_med_fitness" else np.array(data[nb]['pop_q3_fitness'][method]['median'])
-            ax[i, j].plot(x, y, label=method, color=palette["0"], linestyle='-', linewidth=2.0, markersize=10)
+            ax[i, j].plot(x, y, label=method, color=palette["0"], linestyle='-', linewidth=5.0, markersize=10)
             ax[i, j].fill_between(x, q1, q3, color=palette["0"], alpha=0.15)
             local_min = min(local_min, float(np.nanmin(q1)), float(np.nanmin(y)))
             local_max = max(local_max, float(np.nanmax(q3)), float(np.nanmax(y)))
@@ -568,7 +568,7 @@ def my_callback_lineplot_grid_over_generations_cellular_truth_tables(data: dict,
                 y = np.array(curr_data[method]['median'])
                 q1 = np.array(curr_data[method]['q1']) if metric != "pop_med_fitness" else np.array(data[nb]['pop_q1_fitness'][method]['median'])
                 q3 = np.array(curr_data[method]['q3']) if metric != "pop_med_fitness" else np.array(data[nb]['pop_q3_fitness'][method]['median'])
-                ax[i, j].plot(x, y, label=method, color=palette[r], linestyle='-', linewidth=2.0, markersize=10)
+                ax[i, j].plot(x, y, label=method, color=palette[r], linestyle='-', linewidth=5.0, markersize=10)
                 ax[i, j].fill_between(x, q1, q3, color=palette[r], alpha=0.15)
                 local_min = min(local_min, float(np.nanmin(q1)), float(np.nanmin(y)))
                 local_max = max(local_max, float(np.nanmax(q3)), float(np.nanmax(y)))
@@ -576,7 +576,8 @@ def my_callback_lineplot_grid_over_generations_cellular_truth_tables(data: dict,
             # set x limits/ticks
             ax[i, j].set_xlim(0, num_gen)
             ax[i, j].set_xticks([0, num_gen // 2, num_gen])
-
+            # force yticks to be only integer
+            ax[i, j].yaxis.get_major_locator().set_params(integer=True)
             # apply a small padding on the y axis so lines aren't clipped at the top/bottom border
             if metric == "real_global_moran_I":
                 ax[i, j].set_ylim(-0.1, 0.5)
@@ -649,16 +650,16 @@ def my_callback_lineplot_grid_over_generations_cellular_truth_tables(data: dict,
                     ax[i, j].set_ylim(local_min - pad, local_max + pad)
             
             ax[i, j].tick_params(axis='both', which='both', reset=False, bottom=False, top=False, left=False, right=False)
-            ax[i, j].tick_params(axis='y', labelsize=14)
+            ax[i, j].tick_params(axis='y', labelsize=30)
             if i == n - 1:
-                ax[i, j].set_xlabel('Generation', fontsize=24)
-                ax[i, j].tick_params(axis='x', labelsize=18)
+                ax[i, j].set_xlabel('Generation', fontsize=40)
+                ax[i, j].tick_params(axis='x', labelsize=30)
             else:
                 ax[i, j].tick_params(labelbottom=False)
                 ax[i, j].set_xticklabels([])
             
             if j == 0:
-                ax[i, j].set_ylabel(metric_alias[metric], labelpad=10 if i == n - 1 else (15 if i == 0 else 17), fontsize=24)
+                ax[i, j].set_ylabel(metric_alias[metric], labelpad=10 if i == n - 1 else (15 if i == 0 else 17), fontsize=40)
                 #ax[i, j].set_ylabel(metric_alias[metric], labelpad=10 if i != 0 else (22 if metric in ('best_fitness', 'granular_best_fitness') else 10), fontsize=18)
             #else:
                 #ax[i, j].tick_params(labelleft=False)
@@ -775,13 +776,13 @@ def boxplot_grid_cellular_truth_tables(
 
 def my_callback_boxplot_grid_cellular_truth_tables(data: dict[str, pd.DataFrame], significance_dict: dict[str, dict[str, dict[str, bool]]], y_title: str, palette_cmp: dict[str, str]): 
     n, m = 3, 3
-    fig, ax = plt.subplots(n, m, figsize=(15, 10), layout='tight', squeeze=False)
+    fig, ax = plt.subplots(n, m, figsize=(20, 20), layout='tight', squeeze=False)
     n_bits = np.array(list(range(8, 16 + 1))).reshape(n, m)
     for i in range(n):
         for j in range(m):
             nb = str(n_bits[i, j])
             df = data[nb]
-            ax[i, j].set_title(f'$n = {nb}$', fontsize=24)
+            ax[i, j].set_title(f'$n = {nb}$', fontsize=50)
             # Grid and ticks
             ax[i, j].grid(True, axis='both', which='major', color='gray', linestyle='--', linewidth=0.5)
             ax[i, j].tick_params(axis='both', which='both', reset=False, bottom=False, top=False, left=False, right=False)
@@ -805,7 +806,7 @@ def my_callback_boxplot_grid_cellular_truth_tables(data: dict[str, pd.DataFrame]
             
             # increase thickness of median and quartile lines and also of the box edges
             for line in ax[i, j].artists + ax[i, j].lines:
-                line.set_linewidth(1.8)
+                line.set_linewidth(4.0)
                 line.set_color('black')
 
             # if we computed sensible local bounds, add a small padding to prevent clipping
@@ -861,7 +862,7 @@ def my_callback_boxplot_grid_cellular_truth_tables(data: dict[str, pd.DataFrame]
                             x_axes = ax[i, j].transAxes.inverted().transform((x_disp, 0))[0]
                             y_axes_fixed = 0.1
                             ax[i, j].text(x_axes, y_axes_fixed, r'\textbf{*}', transform=ax[i, j].transAxes,
-                                          ha='center', va='center', fontsize=32, color='black', clip_on=False)
+                                          ha='center', va='center', fontsize=65, color='black', clip_on=False)
                         except Exception:
                             # fallback: place using data coords near bottom of axis
                             vals = df[(df['Method'] == method_label) & (df[r"$p$"] == str(hue_str))][y_title].dropna()
@@ -871,23 +872,27 @@ def my_callback_boxplot_grid_cellular_truth_tables(data: dict[str, pd.DataFrame]
                             yrange = max((y1 - y0), 1e-6)
                             stagger = (hi - (n_hues - 1) / 2.0) * 0.02 * yrange
                             y_coord = y0 + 0.02 * yrange + stagger
-                            ax[i, j].text(x_data, y_coord, r'\textbf{*}', ha='center', va='bottom', fontsize=32, color='black', clip_on=False)
+                            ax[i, j].text(x_data, y_coord, r'\textbf{*}', ha='center', va='bottom', fontsize=65, color='black', clip_on=False)
             except Exception:
                 # keep plotting even if annotations fail
                 pass
 
-            ax[i, j].tick_params(axis='y', labelsize=14)
+            # force yticks to be only integer
+            ax[i, j].yaxis.get_major_locator().set_params(integer=True) 
+            
+
+            ax[i, j].tick_params(axis='y', labelsize=32)
             if i == n - 1:
-                ax[i, j].set_xlabel('Method', fontsize=24)
+                ax[i, j].set_xlabel('Method', fontsize=44)
                 # increase font size of x tick labels for bottom row
-                ax[i, j].tick_params(axis='x', labelsize=22)
+                ax[i, j].tick_params(axis='x', labelsize=38)
             else:
                 ax[i, j].tick_params(labelbottom=False)
                 ax[i, j].set_xticklabels([])
                 ax[i, j].set_xlabel('')
             
             if j == 0:
-                ax[i, j].set_ylabel(y_title, labelpad=10 if i == n - 1 else (15 if i == 0 else 17), fontsize=24)
+                ax[i, j].set_ylabel(y_title, labelpad=10 if i == n - 1 else (15 if i == 0 else 17), fontsize=38)
             else:
                 # empty y labels for
                 ax[i, j].set_ylabel('')
@@ -1017,11 +1022,11 @@ def my_callback_heatmap(vmin: float, vmax: float, all_histories: dict, gens: lis
             ax[i, j].tick_params(labelleft=False)
 
             if i == 0:
-                ax[i, j].set_title(f"Gen. {gens[iter_i]}" if gens[iter_i] < 999 else f"Gen. {gens[iter_i] + 1}", fontsize=18)
+                ax[i, j].set_title(f"Gen. {gens[iter_i]}" if gens[iter_i] < 999 else f"Gen. {gens[iter_i] + 1}", fontsize=30)
 
             iter_i += 1
 
-        ax[i, 0].set_ylabel(alias, fontsize=18)
+        ax[i, 0].set_ylabel(alias, fontsize=30)
         met_i += 1
     return fig
 
@@ -1036,7 +1041,7 @@ def make_colorbar(vmin, vmax):
     plt.close()
 
 def my_callback_colorbar(vmin, vmax):
-    fig, ax = plt.subplots(figsize=(1.1, 10), layout='constrained')
+    fig, ax = plt.subplots(figsize=(1.5, 10), layout='constrained')
     #fig.subplots_adjust(bottom=0.5)
     # Add a bit more white space on the left with constrained layout
     # rect = [left, bottom, right, top] in figure coordinates
@@ -1046,7 +1051,9 @@ def my_callback_colorbar(vmin, vmax):
     norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
 
     cb = colorbar.ColorbarBase(ax, cmap=cmap, norm=norm, orientation='vertical')
-    cb.set_label(r'$\tilde{\overline{\ell}}$', fontsize=18, rotation=270, labelpad=15)
+    cb.set_label(r'$\tilde{\overline{\ell}}$', fontsize=34, rotation=270, labelpad=15)
+    # Set tick label size
+    cb.ax.tick_params(labelsize=26)
     return fig
 
 
@@ -1426,23 +1433,23 @@ def main_truth_tables():
     with open('../analysis/distribution_metrics_fixed_generation_truth_tables_pop100_gen1000.json', 'r') as f:
         data_box = json.load(f)
 
-    vmin, vmax = heatmap(
-        results_folder=results_folder,
-        n_bits=16,
-        gens=[1, 5, 10, 500, 999],
-        dupl_retry=dupl_retry,
-        radius=[1, 2, 3],
-        cmp_rate=0.5,
-        pop_size=pop_size,
-        num_gen=n_iter,
-        pressure=pressure,
-        torus_dim=torus_dim,
-        pop_shape=(10, 10),
-        seed_index=49,
-        save_png=True,
-        dpi=800,
-    )
-    make_colorbar(vmin, vmax)
+    # vmin, vmax = heatmap(
+    #     results_folder=results_folder,
+    #     n_bits=16,
+    #     gens=[1, 5, 10, 500, 999],
+    #     dupl_retry=dupl_retry,
+    #     radius=[1, 2, 3],
+    #     cmp_rate=0.5,
+    #     pop_size=pop_size,
+    #     num_gen=n_iter,
+    #     pressure=pressure,
+    #     torus_dim=torus_dim,
+    #     pop_shape=(10, 10),
+    #     seed_index=49,
+    #     save_png=True,
+    #     dpi=800,
+    # )
+    # make_colorbar(vmin, vmax)
     # print_table_max_and_med_non_linearity(
     #     data=data_box,
     #     dupl_retry=dupl_retry,
@@ -1452,26 +1459,26 @@ def main_truth_tables():
     #     cmp_rate=0.5
     # )
     # quit()
-    # for metric in ['best_fitness', 'pop_med_fitness', 'real_global_moran_I']:
-    #     for cr in [0.5]:
-    #         lineplot_grid_over_generations_cellular_truth_tables(
-    #             data,
-    #             metric=metric,
-    #             cmp_rate=cr,
-    #             palette=palette,
-    #             save_png=True,
-    #             dpi=800
-    #         )
-    quit()
-    boxplot_grid_cellular_truth_tables(
-        data=data_box,
-        baseline_vs_baseline10retry=False,
-        metric='best_fitness',
-        gen=999,
-        palette_cmp=palette_cmp,
-        save_png=True,
-        dpi=800
-    )
+    for metric in ['best_fitness', 'pop_med_fitness', 'real_global_moran_I']:
+        for cr in [0.5]:
+            lineplot_grid_over_generations_cellular_truth_tables(
+                data,
+                metric=metric,
+                cmp_rate=cr,
+                palette=palette,
+                save_png=True,
+                dpi=800
+            )
+    #quit()
+    # boxplot_grid_cellular_truth_tables(
+    #     data=data_box,
+    #     baseline_vs_baseline10retry=False,
+    #     metric='best_fitness',
+    #     gen=999,
+    #     palette_cmp=palette_cmp,
+    #     save_png=True,
+    #     dpi=800
+    # )
 
 
 
