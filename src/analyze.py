@@ -117,21 +117,25 @@ def load_history(
             for c in cmp_rate:
                 for seed in seed_indexes:
                     print(f'Loading history for n_bits={nb}, seed={seed}, torus{torus_dim}_radius{r}_cmp{c}')
-                    df = truth_tables_history(
-                        results_folder=results_folder,
-                        pop_size=pop_size,
-                        gen=gen,
-                        dupl_retry=0,
-                        n_bits=nb,
-                        seed_index=seed,
-                        pressure=0,
-                        torus_dim=torus_dim,
-                        radius=r,
-                        cmp_rate=c
-                    )
-                    df['granular_best_fitness'] = df['best_fitness'].copy()
-                    df['best_fitness'] = df['best_fitness'].apply(lambda x: int(x))
-                    loaded_history[f'{pop_size}_{gen}_{0}_{nb}_{seed}_{0}_{torus_dim}_{r}_{c}'] = df
+                    try:
+                        df = truth_tables_history(
+                            results_folder=results_folder,
+                            pop_size=pop_size,
+                            gen=gen,
+                            dupl_retry=0,
+                            n_bits=nb,
+                            seed_index=seed,
+                            pressure=0,
+                            torus_dim=torus_dim,
+                            radius=r,
+                            cmp_rate=c
+                        )
+                        df['granular_best_fitness'] = df['best_fitness'].copy()
+                        df['best_fitness'] = df['best_fitness'].apply(lambda x: int(x))
+                        loaded_history[f'{pop_size}_{gen}_{0}_{nb}_{seed}_{0}_{torus_dim}_{r}_{c}'] = df
+                    except Exception as e:
+                        with open('missing.txt', 'a+') as f:
+                            f.write(f'MISSING: pop_size={pop_size}, gen={gen}, dupl_retry=0, n_bits={nb}, seed_index={seed}, pressure=0, torus_dim={torus_dim}, radius={r}, cmp_rate={c}\n')
     return loaded_history
 
 
@@ -1400,8 +1404,8 @@ def main_truth_tables():
     
     # _ = persist_dict_with_aggregated_metric_for_truth_tables_for_all_generations(
     #      results_folder,
-    #      pop_size,
-    #      n_iter,
+    #      900,#400,#pop_size,
+    #      111,#250,#n_iter,
     #      dupl_retry,
     #      n_bits,
     #      seed_indexes,
@@ -1413,11 +1417,11 @@ def main_truth_tables():
     # )
     # _ = persist_dict_with_distribution_metric_for_truth_tables_for_all_repetitions_fixed_generation(
     #      results_folder,
-    #      pop_size,
-    #      n_iter,
+    #      900,#400,#pop_size,
+    #      111,#250,#n_iter,
     #      dupl_retry,
     #      n_bits,
-    #      gens,
+    #      [111 - 1],#[250 - 1],#gens,
     #      seed_indexes,
     #      pressure,
     #      torus_dim,
@@ -1425,13 +1429,25 @@ def main_truth_tables():
     #      cmp_rate,
     #      persist
     # )
-    # create_legend(palette_toroid)
+    # #create_legend(palette_toroid)
     # quit()
     with open('../analysis/aggregated_metrics_over_generations_truth_tables_pop100_gen1000.json', 'r') as f:
-        data = json.load(f)
+        data_100_1000 = json.load(f)
         
     with open('../analysis/distribution_metrics_fixed_generation_truth_tables_pop100_gen1000.json', 'r') as f:
-        data_box = json.load(f)
+        data_box_100_1000 = json.load(f)
+    
+    with open('../analysis/aggregated_metrics_over_generations_truth_tables_pop400_gen250.json', 'r') as f:
+        data_400_250 = json.load(f)
+        
+    with open('../analysis/distribution_metrics_fixed_generation_truth_tables_pop400_gen250.json', 'r') as f:
+        data_box_400_250 = json.load(f)
+    
+    with open('../analysis/aggregated_metrics_over_generations_truth_tables_pop900_gen111.json', 'r') as f:
+        data_900_111 = json.load(f)
+        
+    with open('../analysis/distribution_metrics_fixed_generation_truth_tables_pop900_gen111.json', 'r') as f:
+        data_box_900_111 = json.load(f)
 
     # vmin, vmax = heatmap(
     #     results_folder=results_folder,
@@ -1459,26 +1475,26 @@ def main_truth_tables():
     #     cmp_rate=0.5
     # )
     # quit()
-    for metric in ['best_fitness', 'pop_med_fitness', 'real_global_moran_I']:
-        for cr in [0.5]:
-            lineplot_grid_over_generations_cellular_truth_tables(
-                data,
-                metric=metric,
-                cmp_rate=cr,
-                palette=palette,
-                save_png=True,
-                dpi=800
-            )
+    # for metric in ['best_fitness', 'pop_med_fitness', 'real_global_moran_I']:
+    #     for cr in [0.5]:
+    #         lineplot_grid_over_generations_cellular_truth_tables(
+    #             data,
+    #             metric=metric,
+    #             cmp_rate=cr,
+    #             palette=palette,
+    #             save_png=True,
+    #             dpi=800
+    #         )
     #quit()
-    # boxplot_grid_cellular_truth_tables(
-    #     data=data_box,
-    #     baseline_vs_baseline10retry=False,
-    #     metric='best_fitness',
-    #     gen=999,
-    #     palette_cmp=palette_cmp,
-    #     save_png=True,
-    #     dpi=800
-    # )
+    boxplot_grid_cellular_truth_tables(
+        data=data_box_900_111,
+        baseline_vs_baseline10retry=False,
+        metric='best_fitness',
+        gen=111 - 1,
+        palette_cmp=palette_cmp,
+        save_png=True,
+        dpi=800
+    )
 
 
 
