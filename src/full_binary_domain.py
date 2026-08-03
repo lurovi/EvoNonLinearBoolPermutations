@@ -26,6 +26,11 @@ class FullBinaryDomain:
     def space_cardinality(self) -> int:
         return self.__space_cardinality
 
+    def balancedness_penalty(self, output: np.ndarray) -> int:
+        # return the number of bits to be changed to make the output balanced
+        num_of_zeros: int = (output == 0).sum()
+        return int(abs(num_of_zeros - (self.space_cardinality() - num_of_zeros))) // 2
+
     def covering_radius_bound(self) -> int:
         return self.__covering_radius_bound
 

@@ -10,7 +10,7 @@ from walsh_transform import WalshTransform
 
 from generator import Individual, IndividualProgram, clone_program, execute_program, generate_alternate_balanced_binary_vector_one_zero, generate_random_balanced_binary_vector
 from cellular.factory.NeighborsTopologyFactory import NeighborsTopologyFactory
-from cellular.support import compute_all_possible_neighborhoods, create_neighbors_topology_factory, global_moran_I, compute_euclidean_diversity_all_distinct_distances, one_matrix_zero_diagonal, simple_selection_process, weights_matrix_for_morans_I
+from cellular.support import compute_all_possible_neighborhoods, create_neighbors_topology_factory, global_moran_I, simple_selection_process, weights_matrix_for_morans_I
 
 
 def check_all_truth_tables_are_balanced(truth_tables: list[np.ndarray]) -> bool:
@@ -21,6 +21,39 @@ def check_all_truth_tables_are_balanced(truth_tables: list[np.ndarray]) -> bool:
         if np.sum(tt) != len(tt) // 2:
             return False
     return True
+
+
+def compute_median_hamming_distance(truth_tables: list[np.ndarray]) -> float:
+    """
+    Compute the median Hamming distance between all pairs of truth tables.
+    """
+    distances = []
+    for i in range(len(truth_tables) - 1):
+        for j in range(i + 1, len(truth_tables)):
+            distances.append(np.sum(truth_tables[i] != truth_tables[j]))
+    return statistics.median(distances) if distances else 0.0
+
+
+def compute_euclidean_diversity_all_distinct_distances(spectra: list[np.ndarray], measure: str = 'median') -> float:
+    """
+    Compute the diversity of a population based on the Euclidean distances between all distinct pairs of spectra.
+    """
+    distances = []
+    for i in range(len(spectra) - 1):
+        for j in range(i + 1, len(spectra)):
+            distances.append(np.linalg.norm(spectra[i] - spectra[j]))
+    
+    if not distances:
+        return 0.0
+    
+    if measure == 'median':
+        return statistics.median(distances)
+    elif measure == 'mean':
+        return np.mean(distances)
+    elif measure == 'std':
+        return np.std(distances)
+    else:
+        raise ValueError(f"Unknown measure: {measure}. Use 'median', 'mean', or 'std'.")
 
 
 def random_search_truth_tables(
@@ -279,6 +312,9 @@ def evolutionary_algorithm_truth_tables(
     history["best_algebraic_degree"] = [walsh.domain().degree(best.genome)[1]]
     history["best_max_autocorrelation_coefficient"] = [walsh.invert(best.spectrum)[1]]
 
+    history['median_hamming_distance'] = [compute_median_hamming_distance([ind.genome for ind in population])]
+    history['euclidean_diversity_median'] = [compute_euclidean_diversity_all_distinct_distances([ind.spectrum for ind in population], measure='median')]
+
     #history['vanilla_global_moran_I'] = [global_moran_I([ind.spectrum for ind in population], w=one_matrix_zero_diagonal(pop_size))]
     history['real_global_moran_I'] = [global_moran_I([ind.spectrum for ind in population], w=weights_matrix_moran)]
     #history['diversity_median'] = [compute_euclidean_diversity_all_distinct_distances([ind.spectrum for ind in population], measure='median')]
@@ -417,6 +453,9 @@ def evolutionary_algorithm_truth_tables(
         history["best_correlation_immunity"].append(walsh.correlation_immunity(best.spectrum))
         history["best_algebraic_degree"].append(walsh.domain().degree(best.genome)[1])
         history["best_max_autocorrelation_coefficient"].append(walsh.invert(best.spectrum)[1])
+
+        history['median_hamming_distance'].append(compute_median_hamming_distance([ind.genome for ind in population]))
+        history['euclidean_diversity_median'].append(compute_euclidean_diversity_all_distinct_distances([ind.spectrum for ind in population], measure='median'))
 
         #history['vanilla_global_moran_I'].append(global_moran_I([ind.spectrum for ind in population], w=one_matrix_zero_diagonal(pop_size)))
         history['real_global_moran_I'].append(global_moran_I([ind.spectrum for ind in population], w=weights_matrix_moran))
