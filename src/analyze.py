@@ -139,6 +139,57 @@ def load_history(
     return loaded_history
 
 
+def load_history_only_baseline_with_different_pressure(
+    results_folder: str,
+    n_bits: list[int],
+    seed_indexes: list[int],
+    pop_size: int,
+    gen: int,
+    dupl_retry: int,
+    pressures: list[int],
+) -> dict:
+    loaded_history = {}
+    for pressure in pressures:
+        for nb in n_bits:
+            # baseline
+            for seed in seed_indexes:
+                print(f'Loading history for n_bits={nb}, seed={seed}, baseline, pressure={pressure}')
+                df = truth_tables_history(
+                    results_folder=results_folder,
+                    pop_size=pop_size,
+                    gen=gen,
+                    dupl_retry=0,
+                    n_bits=nb,
+                    seed_index=seed,
+                    pressure=pressure,
+                    torus_dim=0,
+                    radius=0,
+                    cmp_rate=0.0
+                )
+                df['granular_best_fitness'] = df['best_fitness'].copy()
+                df['best_fitness'] = df['best_fitness'].apply(lambda x: int(x))
+                loaded_history[f'{pop_size}_{gen}_{0}_{nb}_{seed}_{pressure}_{0}_{0}_{0.0}'] = df
+            # baseline10retry
+            for seed in seed_indexes:
+                print(f'Loading history for n_bits={nb}, seed={seed}, baseline10retry, pressure={pressure}')
+                df = truth_tables_history(
+                    results_folder=results_folder,
+                    pop_size=pop_size,
+                    gen=gen,
+                    dupl_retry=dupl_retry,
+                    n_bits=nb,
+                    seed_index=seed,
+                    pressure=pressure,
+                    torus_dim=0,
+                    radius=0,
+                    cmp_rate=0.0
+                )
+                df['granular_best_fitness'] = df['best_fitness'].copy()
+                df['best_fitness'] = df['best_fitness'].apply(lambda x: int(x))
+                loaded_history[f'{pop_size}_{gen}_{dupl_retry}_{nb}_{seed}_{pressure}_{0}_{0}_{0.0}'] = df
+    return loaded_history
+
+
 def load_history_programs(
     results_folder: str,
     n_bits: list[int],
@@ -213,7 +264,7 @@ def persist_dict_with_aggregated_metric_for_truth_tables_for_all_generations(
 ) -> dict:
     # KEYS:
     # n_bits (5, 6, 7, 8, 9, etc.),
-    # metric (best_fitness, granular_best_fitness, best_resiliency, best_algebraic_degree, best_max_autocorrelation_coefficient, real_global_moran_I),
+    # metric (best_fitness, granular_best_fitness, best_resiliency, best_algebraic_degree, best_max_autocorrelation_coefficient, real_global_moran_I, median_hamming_distance, euclidean_diversity_median),
     # method (baseline, baseline10retry, torus2_radius1_cmp0.25, torus2_radius2_cmp0.5, etc.),
     # aggregation (median, q1, q3)
     # VALUE:
@@ -235,7 +286,7 @@ def persist_dict_with_aggregated_metric_for_truth_tables_for_all_generations(
 
     for nb in n_bits:
         data[str(nb)] = {}
-        for metric in ['best_fitness', 'granular_best_fitness', 'best_resiliency', 'best_algebraic_degree', 'best_max_autocorrelation_coefficient', 'real_global_moran_I', 'pop_med_fitness', 'pop_q1_fitness', 'pop_q3_fitness']:
+        for metric in ['best_fitness', 'granular_best_fitness', 'best_resiliency', 'best_algebraic_degree', 'best_max_autocorrelation_coefficient', 'real_global_moran_I', 'median_hamming_distance', 'euclidean_diversity_median', 'pop_med_fitness', 'pop_q1_fitness', 'pop_q3_fitness']:
             data[str(nb)][metric] = {}
             # baseline
             method = 'baseline'
@@ -307,7 +358,7 @@ def persist_dict_with_distribution_metric_for_truth_tables_for_all_repetitions_f
 ) -> dict:
     # KEYS:
     # n_bits (5, 6, 7, 8, 9, etc.),
-    # metric (best_fitness, granular_best_fitness, best_resiliency, best_algebraic_degree, best_max_autocorrelation_coefficient, real_global_moran_I),
+    # metric (best_fitness, granular_best_fitness, best_resiliency, best_algebraic_degree, best_max_autocorrelation_coefficient, real_global_moran_I, median_hamming_distance, euclidean_diversity_median),
     # method (baseline, baseline10retry, torus2_radius1_cmp0.25, torus2_radius2_cmp0.5, etc.),
     # generation (100 - 1, 500 - 1, 1000 - 1),
     # VALUE:
@@ -329,7 +380,7 @@ def persist_dict_with_distribution_metric_for_truth_tables_for_all_repetitions_f
 
     for nb in n_bits:
         data[str(nb)] = {}
-        for metric in ['best_fitness', 'granular_best_fitness', 'best_resiliency', 'best_algebraic_degree', 'best_max_autocorrelation_coefficient', 'real_global_moran_I']:
+        for metric in ['best_fitness', 'granular_best_fitness', 'best_resiliency', 'best_algebraic_degree', 'best_max_autocorrelation_coefficient', 'real_global_moran_I', 'median_hamming_distance', 'euclidean_diversity_median']:
             data[str(nb)][metric] = {}
             # baseline
             method = 'baseline'
@@ -366,6 +417,66 @@ def persist_dict_with_distribution_metric_for_truth_tables_for_all_repetitions_f
     return data
 
 
+def persist_dict_with_distribution_metric_for_truth_tables_for_all_repetitions_fixed_generation_multiple_pressures_only_baselines(
+    results_folder: str,
+    pop_size: int,
+    gen: int,
+    dupl_retry: int,
+    n_bits: list[int],
+    gens: list[int],
+    seed_indexes: list[int],
+    pressures: list[int],
+    persist: bool
+) -> dict:
+    # KEYS:
+    # n_bits (5, 6, 7, 8, 9, etc.),
+    # metric (best_fitness, granular_best_fitness, best_resiliency, best_algebraic_degree, best_max_autocorrelation_coefficient, real_global_moran_I, median_hamming_distance, euclidean_diversity_median),
+    # method (baseline_pressure2, baseline10retry_pressure2, baseline_pressure4, baseline10retry_pressure4, etc.),
+    # generation (100 - 1, 500 - 1, 1000 - 1),
+    # VALUE:
+    # list of float as long as the number of repetitions, each float is taken by the cell in the given repetition corresponding to <metric, gen> 
+    data = {}
+
+    loaded_history = load_history_only_baseline_with_different_pressure(
+        results_folder=results_folder,
+        pop_size=pop_size,
+        gen=gen,
+        dupl_retry=dupl_retry,
+        n_bits=n_bits,
+        seed_indexes=seed_indexes,
+        pressures=pressures,
+    )
+
+    for pressure in pressures:
+        for nb in n_bits:
+            data[str(nb)] = {}
+            for metric in ['best_fitness', 'granular_best_fitness', 'best_resiliency', 'best_algebraic_degree', 'best_max_autocorrelation_coefficient', 'real_global_moran_I', 'median_hamming_distance', 'euclidean_diversity_median']:
+                data[str(nb)][metric] = {}
+                # baseline
+                method = f'baseline_pressure{pressure}'
+                data[str(nb)][metric][method] = {}
+                for g in gens:
+                    all_seeds_values = []
+                    for seed in seed_indexes:
+                        df = loaded_history[f'{pop_size}_{gen}_{0}_{nb}_{seed}_{pressure}_{0}_{0}_{0.0}']
+                        all_seeds_values.append(df[metric].to_list()[g])
+                    data[str(nb)][metric][method][str(g)] = all_seeds_values
+                # baseline10retry
+                method = f'baseline{dupl_retry}retry_pressure{pressure}'
+                data[str(nb)][metric][method] = {}
+                for g in gens:
+                    all_seeds_values = []
+                    for seed in seed_indexes:
+                        df = loaded_history[f'{pop_size}_{gen}_{dupl_retry}_{nb}_{seed}_{pressure}_{0}_{0}_{0.0}']
+                        all_seeds_values.append(df[metric].to_list()[g])
+                    data[str(nb)][metric][method][str(g)] = all_seeds_values
+
+    if persist:
+        with open(os.path.join('../analysis/', 'distribution_metrics_fixed_generation_truth_tables_multiple_baseline_pressures.json'), 'w') as f:
+            json.dump(data, f, indent=4)
+    return data
+
+
 ## PROGRAMS AGGRAGEGATED METRICS
 
 def persist_dict_with_aggregated_metric_for_programs_for_all_generations(
@@ -382,7 +493,7 @@ def persist_dict_with_aggregated_metric_for_programs_for_all_generations(
 ) -> dict:
     # KEYS:
     # n_bits (5, 6, 7, 8, 9, etc.),
-    # metric (best_fitness, granular_best_fitness, best_resiliency, best_algebraic_degree, best_max_autocorrelation_coefficient, real_global_moran_I),
+    # metric (best_fitness, granular_best_fitness, best_resiliency, best_algebraic_degree, best_max_autocorrelation_coefficient, real_global_moran_I, median_hamming_distance, euclidean_diversity_median, pop_med_fitness, pop_q1_fitness, pop_q3_fitness),
     # method (baseline, binsize16_length_2_5_p100, binsize16_length_2_10_p100, binsize16_length_2_10_p200, etc.),
     # aggregation (median, q1, q3)
     # VALUE:
@@ -403,7 +514,7 @@ def persist_dict_with_aggregated_metric_for_programs_for_all_generations(
 
     for nb in n_bits:
         data[str(nb)] = {}
-        for metric in ['best_fitness', 'granular_best_fitness', 'best_resiliency', 'best_algebraic_degree', 'best_max_autocorrelation_coefficient', 'real_global_moran_I', 'pop_med_fitness', 'pop_q1_fitness', 'pop_q3_fitness']:
+        for metric in ['best_fitness', 'granular_best_fitness', 'best_resiliency', 'best_algebraic_degree', 'best_max_autocorrelation_coefficient', 'real_global_moran_I', 'median_hamming_distance', 'euclidean_diversity_median', 'pop_med_fitness', 'pop_q1_fitness', 'pop_q3_fitness']:
             data[str(nb)][metric] = {}
             # baseline
             method = 'baseline'
@@ -459,7 +570,7 @@ def persist_dict_with_distribution_metric_for_programs_for_all_repetitions_fixed
 ) -> dict:
     # KEYS:
     # n_bits (5, 6, 7, 8, 9, etc.),
-    # metric (best_fitness, granular_best_fitness, best_resiliency, best_algebraic_degree, best_max_autocorrelation_coefficient, real_global_moran_I),
+    # metric (best_fitness, granular_best_fitness, best_resiliency, best_algebraic_degree, best_max_autocorrelation_coefficient, real_global_moran_I, median_hamming_distance, euclidean_diversity_median),
     # method (baseline, binsize16_length_2_5_p100, binsize16_length_2_10_p100, binsize16_length_2_10_p200, etc.),
     # generation (100 - 1, 500 - 1, 1000 - 1),
     # VALUE:
@@ -480,7 +591,7 @@ def persist_dict_with_distribution_metric_for_programs_for_all_repetitions_fixed
 
     for nb in n_bits:
         data[str(nb)] = {}
-        for metric in ['best_fitness', 'granular_best_fitness', 'best_resiliency', 'best_algebraic_degree', 'best_max_autocorrelation_coefficient', 'real_global_moran_I']:
+        for metric in ['best_fitness', 'granular_best_fitness', 'best_resiliency', 'best_algebraic_degree', 'best_max_autocorrelation_coefficient', 'real_global_moran_I', 'median_hamming_distance', 'euclidean_diversity_median']:
             data[str(nb)][metric] = {}
             # baseline
             method = 'baseline'
@@ -535,7 +646,7 @@ def lineplot_grid_over_generations_cellular_truth_tables(
 
 
 def my_callback_lineplot_grid_over_generations_cellular_truth_tables(data: dict, metric: str, cmp_rate: float, palette: dict):
-    metric_alias = {'pop_med_fitness': r'Median $\ \ \tilde{\overline{\ell}}$', 'granular_best_fitness': r'$\tilde{\overline{\ell}}$', 'best_fitness': r'$\overline{\ell}$', 'best_resiliency': r'$r$', 'best_algebraic_degree': r'$d$', 'best_max_autocorrelation_coefficient': r'$a$', 'real_global_moran_I': r'$I$'}
+    metric_alias = {'pop_med_fitness': r'Median $\ \ \tilde{\overline{\ell}}$', 'granular_best_fitness': r'$\tilde{\overline{\ell}}$', 'best_fitness': r'$\overline{\ell}$', 'best_resiliency': r'$r$', 'best_algebraic_degree': r'$d$', 'best_max_autocorrelation_coefficient': r'$a$', 'real_global_moran_I': r'$I$', 'median_hamming_distance': r'$H$', 'euclidean_diversity_median': r'$E$'}
     
     n, m = 3, 3
     radius = ["1", "2", "3"]
@@ -682,7 +793,7 @@ def boxplot_grid_cellular_truth_tables(
     save_png: bool,
     dpi: int
 ):
-    metric_alias = {'granular_best_fitness': r'$\tilde{\overline{\ell}}$', 'best_fitness': r'$\overline{\ell}$', 'best_resiliency': r'$r$', 'best_algebraic_degree': r'$d$', 'best_max_autocorrelation_coefficient': r'$a$', 'real_global_moran_I': r'$I$'}
+    metric_alias = {'granular_best_fitness': r'$\tilde{\overline{\ell}}$', 'best_fitness': r'$\overline{\ell}$', 'best_resiliency': r'$r$', 'best_algebraic_degree': r'$d$', 'best_max_autocorrelation_coefficient': r'$a$', 'real_global_moran_I': r'$I$', 'median_hamming_distance': r'$H$', 'euclidean_diversity_median': r'$E$'}
 
     n_bits = list(range(8, 16 + 1))
     dataframes_dict = {}
@@ -1073,7 +1184,7 @@ def boxplot_grid_shuffle_programs(
     save_png: bool,
     dpi: int
 ):
-    metric_alias = {'granular_best_fitness': r'$\tilde{\overline{\ell}}$', 'best_fitness': r'$\overline{\ell}$', 'best_resiliency': r'$r$', 'best_algebraic_degree': r'$d$', 'best_max_autocorrelation_coefficient': r'$a$', 'real_global_moran_I': r'$I$'}
+    metric_alias = {'granular_best_fitness': r'$\tilde{\overline{\ell}}$', 'best_fitness': r'$\overline{\ell}$', 'best_resiliency': r'$r$', 'best_algebraic_degree': r'$d$', 'best_max_autocorrelation_coefficient': r'$a$', 'real_global_moran_I': r'$I$', 'median_hamming_distance': r'$H$', 'euclidean_diversity_median': r'$E$'}
 
     n_bits = [9, 10, 11, 12, 13, 14] # list(range(8, 16 + 1))
     init_bin_size = 1
@@ -1280,6 +1391,10 @@ def print_table_max_and_med_non_linearity(data: dict, dupl_retry: int, gen: int,
     
 ## PROGRAMS
 
+
+
+
+
 # =====================================
 # Main
 # =====================================
@@ -1361,7 +1476,7 @@ def main_programs():
     #     cmp_rate=0.5
     # )
     # quit()
-    # for metric in ['best_fitness', 'pop_med_fitness', 'real_global_moran_I']:
+    # for metric in ['best_fitness', 'pop_med_fitness', 'real_global_moran_I', 'median_hamming_distance', 'euclidean_diversity_median']:
     #     for cr in [0.5]:
     #         lineplot_grid_over_generations_cellular_truth_tables(
     #             data,
@@ -1388,49 +1503,62 @@ def main_truth_tables():
     
     palette_cmp = {'0.0': "#B60000", '0.25': "#BCB8F7", '0.5': "#594fe7", '0.75': "#2d1bcc", '1.0': "#020270"}
     palette_p = {r'$p = 0.25$': "#BCB8F7", r'$p = 0.5$': "#594fe7", r'$p = 0.75$': "#2d1bcc", r'$p = 1.0$': "#020270"}
+    palette_pressures = {r'$k = 2$': "#CE9B9B", r'$k = 4$': "#B14545", r'$k = 6$': "#A30C0C", r'$k = 8$': "#4E0303"}
 
     n_bits = list(range(8, 16 + 1))
     seed_indexes = list(range(1, 50 + 1))
     pressure = 4
+    pressures = [2, 4, 6, 8]
     pop_size = 100
     n_iter = 1000
     dupl_retry = 10
     torus_dim = 2
     radius = [1, 2, 3]
     cmp_rate = [0.25, 0.5, 0.75, 1.0]
-    gens = [200 - 1, 400 - 1, 500 - 1, 1000 - 1]
+    gens = [1000 - 1] # [200 - 1, 400 - 1, 500 - 1, 1000 - 1]
     results_folder = '../results/'
     persist = True
     
-    # _ = persist_dict_with_aggregated_metric_for_truth_tables_for_all_generations(
-    #      results_folder,
-    #      900,#400,#pop_size,
-    #      111,#250,#n_iter,
-    #      dupl_retry,
-    #      n_bits,
-    #      seed_indexes,
-    #      pressure,
-    #      torus_dim,
-    #      radius,
-    #      cmp_rate,
-    #      persist
-    # )
-    # _ = persist_dict_with_distribution_metric_for_truth_tables_for_all_repetitions_fixed_generation(
-    #      results_folder,
-    #      900,#400,#pop_size,
-    #      111,#250,#n_iter,
-    #      dupl_retry,
-    #      n_bits,
-    #      [111 - 1],#[250 - 1],#gens,
-    #      seed_indexes,
-    #      pressure,
-    #      torus_dim,
-    #      radius,
-    #      cmp_rate,
-    #      persist
-    # )
-    # #create_legend(palette_toroid)
-    # quit()
+    _ = persist_dict_with_aggregated_metric_for_truth_tables_for_all_generations(
+         results_folder,
+         pop_size,#400,#900,
+         n_iter,#250,#111,
+         dupl_retry,
+         n_bits,
+         seed_indexes,
+         pressure,
+         torus_dim,
+         radius,
+         cmp_rate,
+         persist
+    )
+    _ = persist_dict_with_distribution_metric_for_truth_tables_for_all_repetitions_fixed_generation(
+         results_folder,
+         pop_size,#400,#900,
+         n_iter,#250,#111,
+         dupl_retry,
+         n_bits,
+         gens,#[250 - 1],#[111 - 1],
+         seed_indexes,
+         pressure,
+         torus_dim,
+         radius,
+         cmp_rate,
+         persist
+    )
+    _ = persist_dict_with_distribution_metric_for_truth_tables_for_all_repetitions_fixed_generation_multiple_pressures_only_baselines(
+        results_folder,
+        pop_size,
+        n_iter,
+        dupl_retry,
+        n_bits,
+        gens,
+        seed_indexes,
+        pressures,
+        persist
+    )
+    create_legend(palette_pressures)
+    quit()
     with open('../analysis/aggregated_metrics_over_generations_truth_tables_pop100_gen1000.json', 'r') as f:
         data_100_1000 = json.load(f)
         
@@ -1475,7 +1603,7 @@ def main_truth_tables():
     #     cmp_rate=0.5
     # )
     # quit()
-    # for metric in ['best_fitness', 'pop_med_fitness', 'real_global_moran_I']:
+    # for metric in ['best_fitness', 'pop_med_fitness', 'real_global_moran_I', 'median_hamming_distance', 'euclidean_diversity_median']:
     #     for cr in [0.5]:
     #         lineplot_grid_over_generations_cellular_truth_tables(
     #             data,
