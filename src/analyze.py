@@ -447,11 +447,11 @@ def persist_dict_with_distribution_metric_for_truth_tables_for_all_repetitions_f
         pressures=pressures,
     )
 
-    for pressure in pressures:
-        for nb in n_bits:
-            data[str(nb)] = {}
-            for metric in ['best_fitness', 'granular_best_fitness', 'best_resiliency', 'best_algebraic_degree', 'best_max_autocorrelation_coefficient', 'real_global_moran_I', 'median_hamming_distance', 'euclidean_diversity_median']:
-                data[str(nb)][metric] = {}
+    for nb in n_bits:
+        data[str(nb)] = {}
+        for metric in ['best_fitness', 'granular_best_fitness', 'best_resiliency', 'best_algebraic_degree', 'best_max_autocorrelation_coefficient', 'real_global_moran_I', 'median_hamming_distance', 'euclidean_diversity_median']:
+            data[str(nb)][metric] = {}
+            for pressure in pressures:
                 # baseline
                 method = f'baseline_pressure{pressure}'
                 data[str(nb)][metric][method] = {}
@@ -697,6 +697,37 @@ def my_callback_lineplot_grid_over_generations_cellular_truth_tables(data: dict,
             if metric == "real_global_moran_I":
                 ax[i, j].set_ylim(-0.1, 0.5)
                 ax[i, j].set_yticks([0.0, 0.1, 0.2, 0.3, 0.4])
+            elif metric == "median_hamming_distance":
+                ax[i, j].set_ylim(-0.1, 50)
+                ax[i, j].set_yticks([0.0, 10, 20, 30, 40])
+            elif metric == "euclidean_diversity_median":
+                if nb == '8':
+                    ax[i, j].set_ylim(0, 200)
+                    #ax[i, j].set_yticks([250, 260, 270, 280, 290, 300])
+                elif nb == '9':
+                    ax[i, j].set_ylim(0, 300)
+                    #ax[i, j].set_yticks([500, 520, 540, 560, 580, 600])
+                elif nb == '10':
+                    ax[i, j].set_ylim(50, 500)
+                    #ax[i, j].set_yticks([1000, 1040, 1080, 1120, 1160, 1200])
+                elif nb == '11':
+                    ax[i, j].set_ylim(100, 600)
+                    #ax[i, j].set_yticks([2000, 2080, 2160, 2240, 2320, 2400])
+                elif nb == '12':
+                    ax[i, j].set_ylim(150, 700)
+                    #ax[i, j].set_yticks([4000, 4160, 4320, 4480, 4640, 4800])
+                elif nb == '13':
+                    ax[i, j].set_ylim(200, 800)
+                    #ax[i, j].set_yticks([8000, 8320, 8640, 8960, 9280, 9600])
+                elif nb == '14':
+                    ax[i, j].set_ylim(300, 1300)
+                    #ax[i, j].set_yticks([16000, 16640, 17280, 17920, 18560, 19200])
+                elif nb == '15':
+                    ax[i, j].set_ylim(450, 2000)
+                    #ax[i, j].set_yticks([32000, 33280, 34560, 35840, 37120, 38400])
+                elif nb == '16':
+                    ax[i, j].set_ylim(580, 2800)
+                    #ax[i, j].set_yticks([64000, 66560, 69120, 71680, 74240, 76800])
             elif metric == 'best_fitness':
                 if nb == '8':
                     ax[i, j].set_ylim(110, 117)
@@ -981,6 +1012,208 @@ def my_callback_boxplot_grid_cellular_truth_tables(data: dict[str, pd.DataFrame]
                         except Exception:
                             # fallback: place using data coords near bottom of axis
                             vals = df[(df['Method'] == method_label) & (df[r"$p$"] == str(hue_str))][y_title].dropna()
+                            if len(vals) == 0:
+                                continue
+                            y0, y1 = ax[i, j].get_ylim()
+                            yrange = max((y1 - y0), 1e-6)
+                            stagger = (hi - (n_hues - 1) / 2.0) * 0.02 * yrange
+                            y_coord = y0 + 0.02 * yrange + stagger
+                            ax[i, j].text(x_data, y_coord, r'\textbf{*}', ha='center', va='bottom', fontsize=65, color='black', clip_on=False)
+            except Exception:
+                # keep plotting even if annotations fail
+                pass
+
+            # force yticks to be only integer
+            ax[i, j].yaxis.get_major_locator().set_params(integer=True) 
+            
+
+            ax[i, j].tick_params(axis='y', labelsize=32)
+            if i == n - 1:
+                ax[i, j].set_xlabel('Method', fontsize=44)
+                # increase font size of x tick labels for bottom row
+                ax[i, j].tick_params(axis='x', labelsize=38)
+            else:
+                ax[i, j].tick_params(labelbottom=False)
+                ax[i, j].set_xticklabels([])
+                ax[i, j].set_xlabel('')
+            
+            if j == 0:
+                ax[i, j].set_ylabel(y_title, labelpad=10 if i == n - 1 else (15 if i == 0 else 17), fontsize=38)
+            else:
+                # empty y labels for
+                ax[i, j].set_ylabel('')
+                #ax[i, j].tick_params(labelleft=False)
+                #ax[i, j].set_yticklabels([])
+
+            ax[i, j].grid(True, axis='y', which='major', color='gray', linestyle='--', linewidth=0.5)
+    return fig
+
+
+
+
+
+
+
+def boxplot_grid_baseline_pressures_truth_tables(
+    data: dict,
+    metric: str,
+    gen: int,
+    pressures: list[int],
+    dupl_retry: int,
+    palette_pressures: dict,
+    save_png: bool,
+    dpi: int
+):
+    metric_alias = {'granular_best_fitness': r'$\tilde{\overline{\ell}}$', 'best_fitness': r'$\overline{\ell}$', 'best_resiliency': r'$r$', 'best_algebraic_degree': r'$d$', 'best_max_autocorrelation_coefficient': r'$a$', 'real_global_moran_I': r'$I$', 'median_hamming_distance': r'$H$', 'euclidean_diversity_median': r'$E$'}
+
+    n_bits = list(range(8, 16 + 1))
+    dataframes_dict = {}
+    significance_dict = {}
+    
+    for nb in n_bits:
+        signif = {}
+        nb_str = str(nb)
+        gen_str = str(gen)
+        curr_data = data[nb_str][metric]
+        curr_dataframe_dict = {"Method": [], r"$k$": [], metric_alias[metric]: []}
+
+        signif['GA'] = {}
+        signif['Diversity GA'] = {}
+
+        for pressure in pressures:
+            base_values = curr_data[f'baseline_pressure{pressure}'][gen_str]
+            base_values_with_dupl_retry = curr_data[f'baseline{dupl_retry}retry_pressure{pressure}'][gen_str]
+
+            curr_dataframe_dict["Method"].extend(['GA'] * len(base_values))
+            curr_dataframe_dict[r"$k$"].extend([str(pressure)] * len(base_values))
+            curr_dataframe_dict[metric_alias[metric]].extend(base_values)
+
+            curr_dataframe_dict["Method"].extend(['Diversity GA'] * len(base_values_with_dupl_retry))
+            curr_dataframe_dict[r"$k$"].extend([str(pressure)] * len(base_values_with_dupl_retry))
+            curr_dataframe_dict[metric_alias[metric]].extend(base_values_with_dupl_retry)
+
+            print(f'Computing significance for n={nb}, k={pressure}')
+            print(f'  baseline values: {base_values}')
+            print(f'  baseline{dupl_retry}retry values: {base_values_with_dupl_retry}')
+            is_passed, _ = is_mannwhitneyu_passed(base_values, base_values_with_dupl_retry, alternative='less', alpha=0.05)
+            print(f'    baseline < baseline{dupl_retry}retry (k={pressure}): {is_passed}')
+            print()
+            signif['Diversity GA'][str(pressure)] = is_passed
+            is_passed, _ = is_mannwhitneyu_passed(base_values_with_dupl_retry, base_values, alternative='less', alpha=0.05)
+            signif['GA'][str(pressure)] = is_passed
+
+        df = pd.DataFrame(curr_dataframe_dict)
+        dataframes_dict[nb_str] = df
+        significance_dict[nb_str] = signif
+    for nb in n_bits:
+        print(f"n={nb}")
+        print(significance_dict[str(nb)])
+        print()
+    
+    # plot = fastplot.plot(None, None, mode='callback',
+    #                      callback=lambda plt: my_callback_boxplot_grid_baseline_pressures_truth_tables(plt, dataframes_dict, significance_dict, metric_alias[metric], palette_cmp),
+    #                      style='latex', **PLOT_ARGS)
+    plot = my_callback_boxplot_grid_baseline_pressures_truth_tables(dataframes_dict, significance_dict, metric_alias[metric], palette_pressures)
+    plot.savefig(f'../analysis/img/baseline_pressures_boxplot_{metric}_gen{str(gen)}.pdf', dpi=dpi)
+    if save_png:
+        plot.savefig(f'../analysis/img/baseline_pressures_boxplot_{metric}_gen{str(gen)}.png', dpi=dpi)
+    plt.clf()
+    plt.cla()
+    plt.close()
+
+
+def my_callback_boxplot_grid_baseline_pressures_truth_tables(data: dict[str, pd.DataFrame], significance_dict: dict[str, dict[str, dict[str, bool]]], y_title: str, palette_pressures: dict[str, str]): 
+    n, m = 3, 3
+    fig, ax = plt.subplots(n, m, figsize=(20, 20), layout='tight', squeeze=False)
+    n_bits = np.array(list(range(8, 16 + 1))).reshape(n, m)
+    for i in range(n):
+        for j in range(m):
+            nb = str(n_bits[i, j])
+            df = data[nb]
+            ax[i, j].set_title(f'$n = {nb}$', fontsize=50)
+            # Grid and ticks
+            ax[i, j].grid(True, axis='both', which='major', color='gray', linestyle='--', linewidth=0.5)
+            ax[i, j].tick_params(axis='both', which='both', reset=False, bottom=False, top=False, left=False, right=False)
+            # determine local data min/max to add padding and avoid clipping of boxes/whiskers
+            try:
+                col = df[y_title]
+                # drop NaNs
+                col = col.dropna()
+                if len(col) > 0:
+                    local_min = float(col.min())
+                    local_max = float(col.max())
+                else:
+                    local_min = np.nan
+                    local_max = np.nan
+            except Exception:
+                local_min = np.nan
+                local_max = np.nan
+
+            sns.boxplot(data=df, x="Method", y=y_title, hue=r"$k$", palette=palette_pressures, ax=ax[i, j], showfliers=False,
+                        legend=False, fliersize=2.0, log_scale=None)
+            
+            # increase thickness of median and quartile lines and also of the box edges
+            for line in ax[i, j].artists + ax[i, j].lines:
+                line.set_linewidth(4.0)
+                line.set_color('black')
+
+            # if we computed sensible local bounds, add a small padding to prevent clipping
+            if np.isfinite(local_min) and np.isfinite(local_max):
+                rng = local_max - local_min
+                if rng <= 0:
+                    pad = 1.0
+                else:
+                    # for metrics that are integer-like ensure at least 0.5-1 unit padding
+                    pad = max(0.5, 0.02 * rng)
+                ax[i, j].set_ylim(local_min - pad, local_max + pad)
+
+            # --- significance annotations: draw single '*' per True in significance_dict (below the box)
+            # significance_dict is structured as significance_dict[nb][method][p_str] = bool
+            # compute method/hue positions consistent with seaborn's layout
+            try:
+                signif = significance_dict.get(nb, {}) if significance_dict else {}
+                methods = list(dict.fromkeys(df['Method'].tolist()))
+                hues = list(dict.fromkeys(df[r"$k$"].tolist()))
+                n_methods = len(methods)
+                n_hues = len(hues) if len(hues) > 0 else 1
+                xticks = np.arange(n_methods)
+                box_total_width = 0.8
+                single_width = box_total_width / n_hues
+
+                for method_label, hue_dict in signif.items():
+                    for hue_str, passed in hue_dict.items():
+                        if not passed:
+                            continue
+                        # find method index and hue index
+                        try:
+                            mi = methods.index(method_label)
+                        except ValueError:
+                            continue
+                        try:
+                            hi = hues.index(str(hue_str))
+                        except ValueError:
+                            # try numeric matching if one is numeric type
+                            try:
+                                hi = hues.index(hue_str)
+                            except Exception:
+                                continue
+
+                        # x coordinate: group center + offset for hue (data coords)
+                        offset = (hi - (n_hues - 1) / 2.0) * single_width
+                        x_data = float(xticks[mi] + offset)
+
+                        # attempt to place the star at a fixed vertical axes fraction so all stars
+                        # appear at the same height across subplots
+                        try:
+                            # transform data x to display coords, then to axes coords
+                            x_disp, _ = ax[i, j].transData.transform((x_data, 0))
+                            x_axes = ax[i, j].transAxes.inverted().transform((x_disp, 0))[0]
+                            y_axes_fixed = 0.1
+                            ax[i, j].text(x_axes, y_axes_fixed, r'\textbf{*}', transform=ax[i, j].transAxes,
+                                          ha='center', va='center', fontsize=65, color='black', clip_on=False)
+                        except Exception:
+                            # fallback: place using data coords near bottom of axis
+                            vals = df[(df['Method'] == method_label) & (df[r"$k$"] == str(hue_str))][y_title].dropna()
                             if len(vals) == 0:
                                 continue
                             y0, y1 = ax[i, j].get_ylim()
@@ -1503,7 +1736,8 @@ def main_truth_tables():
     
     palette_cmp = {'0.0': "#B60000", '0.25': "#BCB8F7", '0.5': "#594fe7", '0.75': "#2d1bcc", '1.0': "#020270"}
     palette_p = {r'$p = 0.25$': "#BCB8F7", r'$p = 0.5$': "#594fe7", r'$p = 0.75$': "#2d1bcc", r'$p = 1.0$': "#020270"}
-    palette_pressures = {r'$k = 2$': "#CE9B9B", r'$k = 4$': "#B14545", r'$k = 6$': "#A30C0C", r'$k = 8$': "#4E0303"}
+    palette_pressures = {r'$k = 2$': "#fef0d9", r'$k = 4$': "#fdcc8a", r'$k = 6$': "#fc8d59", r'$k = 8$': "#d7301f"}
+    palette_prs = {r'2': "#fef0d9", r'4': "#fdcc8a", r'6': "#fc8d59", r'8': "#d7301f"}
 
     n_bits = list(range(8, 16 + 1))
     seed_indexes = list(range(1, 50 + 1))
@@ -1519,51 +1753,54 @@ def main_truth_tables():
     results_folder = '../results/'
     persist = True
     
-    _ = persist_dict_with_aggregated_metric_for_truth_tables_for_all_generations(
-         results_folder,
-         pop_size,#400,#900,
-         n_iter,#250,#111,
-         dupl_retry,
-         n_bits,
-         seed_indexes,
-         pressure,
-         torus_dim,
-         radius,
-         cmp_rate,
-         persist
-    )
-    _ = persist_dict_with_distribution_metric_for_truth_tables_for_all_repetitions_fixed_generation(
-         results_folder,
-         pop_size,#400,#900,
-         n_iter,#250,#111,
-         dupl_retry,
-         n_bits,
-         gens,#[250 - 1],#[111 - 1],
-         seed_indexes,
-         pressure,
-         torus_dim,
-         radius,
-         cmp_rate,
-         persist
-    )
-    _ = persist_dict_with_distribution_metric_for_truth_tables_for_all_repetitions_fixed_generation_multiple_pressures_only_baselines(
-        results_folder,
-        pop_size,
-        n_iter,
-        dupl_retry,
-        n_bits,
-        gens,
-        seed_indexes,
-        pressures,
-        persist
-    )
-    create_legend(palette_pressures)
-    quit()
+    # _ = persist_dict_with_aggregated_metric_for_truth_tables_for_all_generations(
+    #      results_folder,
+    #      pop_size,#400,#900,
+    #      n_iter,#250,#111,
+    #      dupl_retry,
+    #      n_bits,
+    #      seed_indexes,
+    #      pressure,
+    #      torus_dim,
+    #      radius,
+    #      cmp_rate,
+    #      persist
+    # )
+    # _ = persist_dict_with_distribution_metric_for_truth_tables_for_all_repetitions_fixed_generation(
+    #      results_folder,
+    #      pop_size,#400,#900,
+    #      n_iter,#250,#111,
+    #      dupl_retry,
+    #      n_bits,
+    #      gens,#[250 - 1],#[111 - 1],
+    #      seed_indexes,
+    #      pressure,
+    #      torus_dim,
+    #      radius,
+    #      cmp_rate,
+    #      persist
+    # )
+    # _ = persist_dict_with_distribution_metric_for_truth_tables_for_all_repetitions_fixed_generation_multiple_pressures_only_baselines(
+    #     results_folder,
+    #     pop_size,
+    #     n_iter,
+    #     dupl_retry,
+    #     n_bits,
+    #     gens,
+    #     seed_indexes,
+    #     pressures,
+    #     persist
+    # )
+    # create_legend(palette_pressures)
+    # quit()
     with open('../analysis/aggregated_metrics_over_generations_truth_tables_pop100_gen1000.json', 'r') as f:
         data_100_1000 = json.load(f)
         
     with open('../analysis/distribution_metrics_fixed_generation_truth_tables_pop100_gen1000.json', 'r') as f:
         data_box_100_1000 = json.load(f)
+
+    with open('../analysis/distribution_metrics_fixed_generation_truth_tables_multiple_baseline_pressures_pop100_gen1000.json', 'r') as f:
+        data_box_100_1000_pressures = json.load(f)
     
     with open('../analysis/aggregated_metrics_over_generations_truth_tables_pop400_gen250.json', 'r') as f:
         data_400_250 = json.load(f)
@@ -1604,21 +1841,33 @@ def main_truth_tables():
     # )
     # quit()
     # for metric in ['best_fitness', 'pop_med_fitness', 'real_global_moran_I', 'median_hamming_distance', 'euclidean_diversity_median']:
+    # #for metric in ['median_hamming_distance', 'euclidean_diversity_median']:
     #     for cr in [0.5]:
     #         lineplot_grid_over_generations_cellular_truth_tables(
-    #             data,
+    #             data_100_1000,
     #             metric=metric,
     #             cmp_rate=cr,
     #             palette=palette,
     #             save_png=True,
     #             dpi=800
     #         )
-    #quit()
+    # quit()
+    # boxplot_grid_baseline_pressures_truth_tables(
+    #     data=data_box_100_1000_pressures,
+    #     metric='best_fitness',
+    #     gen=1000 - 1,
+    #     pressures=pressures,
+    #     dupl_retry=dupl_retry,
+    #     palette_pressures=palette_prs,
+    #     save_png=True,
+    #     dpi=800
+    # )
+    # quit()
     boxplot_grid_cellular_truth_tables(
-        data=data_box_900_111,
+        data=data_box_100_1000,
         baseline_vs_baseline10retry=False,
         metric='best_fitness',
-        gen=111 - 1,
+        gen=1000 - 1,
         palette_cmp=palette_cmp,
         save_png=True,
         dpi=800
