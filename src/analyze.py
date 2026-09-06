@@ -3,16 +3,19 @@ import sys
 import json
 import os
 import random
+from cliffs_delta import cliffs_delta
 from pathlib import Path
 from typing import List, Tuple
 import matplotlib.colorbar as colorbar
 import matplotlib.colors as mcolors
+import matplotlib.patheffects as pe
 import seaborn as sns
 
 import numpy as np
 import pandas as pd
 
-from stat_test import is_mannwhitneyu_passed
+from stat_test import is_mannwhitneyu_passed, holm_bonferroni_correction
+import scipy.stats as stats
 
 from matplotlib import pyplot as plt
 preamble = r'''
@@ -870,8 +873,43 @@ def boxplot_grid_cellular_truth_tables(
         #     plot.savefig(f'../analysis/img/cellular_boxplot_baseline_vs_baseline10retry_{metric}_gen{str(gen)}.png', dpi=dpi)
         # plot.savefig(f'../analysis/img/cellular_boxplot_baseline_vs_baseline10retry_{metric}_gen{str(gen)}.pdf', dpi=dpi)
         return
-    
-    
+
+    # for nb in n_bits:
+    #     signif = {}
+    #     nb_str = str(nb)
+    #     gen_str = str(gen)
+    #     curr_data = data[nb_str][metric]
+    #     curr_dataframe_dict = {"Method": [], r"$p$": [], metric_alias[metric]: []}
+    #     # baseline10retry
+    #     base_values = curr_data['baseline10retry'][gen_str]
+    #     curr_dataframe_dict["Method"].extend([r'\notoroid'] * len(base_values))
+    #     curr_dataframe_dict[r"$p$"].extend([str(0.0)] * len(base_values))
+    #     curr_dataframe_dict[metric_alias[metric]].extend(base_values)
+    #     # torus methods
+    #     for r in [1, 2, 3]:
+    #         for c in [0.25, 0.5, 0.75, 1.0]:
+    #             method = r'\toroid{' + str(2) + '}{' + str(r) + '}'
+    #             if method not in signif:
+    #                 signif[method] = {}
+    #             cellular_values = curr_data[f'torus2_radius{r}_cmp{c}'][gen_str]
+    #             curr_dataframe_dict["Method"].extend([method] * len(cellular_values))
+    #             curr_dataframe_dict[r"$p$"].extend([str(c)] * len(cellular_values))
+    #             curr_dataframe_dict[metric_alias[metric]].extend(cellular_values)
+    #             print(f'Computing significance for n={nb}, method={method}, p={c}')
+    #             print(f'  baseline10retry values: {base_values}')
+    #             print(f'  cellular values: {cellular_values}')
+    #             is_passed, _ = is_mannwhitneyu_passed(base_values, cellular_values, alternative='less', alpha=0.05)
+    #             print(f'    baseline10retry < {method} (p={c}): {is_passed}')
+    #             print()
+    #             signif[method][str(c)] = is_passed
+    #     df = pd.DataFrame(curr_dataframe_dict)
+    #     dataframes_dict[nb_str] = df
+    #     significance_dict[nb_str] = signif
+    # for nb in n_bits:
+    #     print(f"n={nb}")
+    #     print(significance_dict[str(nb)])
+    #     print()
+
     for nb in n_bits:
         signif = {}
         nb_str = str(nb)
@@ -883,7 +921,10 @@ def boxplot_grid_cellular_truth_tables(
         curr_dataframe_dict["Method"].extend([r'\notoroid'] * len(base_values))
         curr_dataframe_dict[r"$p$"].extend([str(0.0)] * len(base_values))
         curr_dataframe_dict[metric_alias[metric]].extend(base_values)
-        # torus methods
+        # torus methods: collect all raw p-values for the whole family {r, p} first, so that Holm-Bonferroni correction is applied across the 12 comparisons for this n
+        family_labels = []
+        family_pvalues = []
+        family_cellular_values = {}
         for r in [1, 2, 3]:
             for c in [0.25, 0.5, 0.75, 1.0]:
                 method = r'\toroid{' + str(2) + '}{' + str(r) + '}'
@@ -893,21 +934,27 @@ def boxplot_grid_cellular_truth_tables(
                 curr_dataframe_dict["Method"].extend([method] * len(cellular_values))
                 curr_dataframe_dict[r"$p$"].extend([str(c)] * len(cellular_values))
                 curr_dataframe_dict[metric_alias[metric]].extend(cellular_values)
-                print(f'Computing significance for n={nb}, method={method}, p={c}')
-                print(f'  baseline10retry values: {base_values}')
-                print(f'  cellular values: {cellular_values}')
-                is_passed, _ = is_mannwhitneyu_passed(base_values, cellular_values, alternative='less', alpha=0.05)
-                print(f'    baseline10retry < {method} (p={c}): {is_passed}')
-                print()
-                signif[method][str(c)] = is_passed
+                _, w_pval = stats.mannwhitneyu(base_values, cellular_values, alternative='less', method='auto')
+                family_labels.append((method, str(c)))
+                family_pvalues.append(w_pval)
+                family_cellular_values[(method, str(c))] = cellular_values
+
+        corrected_reject = holm_bonferroni_correction(family_pvalues, alpha=0.05)
+
+        for (method, c_str), passed, raw_p in zip(family_labels, corrected_reject, family_pvalues):
+            if passed:
+                cellular_values = family_cellular_values[(method, c_str)]
+                delta, _ = cliffs_delta(cellular_values, base_values)
+                print(f'n={nb}, method={method}, p={c_str}: significant after Holm correction '
+                      f'(raw p={raw_p:.4g}), Cliffs delta={delta:.3f}')
+                signif[method][c_str] = delta
+            else:
+                signif[method][c_str] = None
+
         df = pd.DataFrame(curr_dataframe_dict)
         dataframes_dict[nb_str] = df
         significance_dict[nb_str] = signif
-    for nb in n_bits:
-        print(f"n={nb}")
-        print(significance_dict[str(nb)])
-        print()
-    
+
     # plot = fastplot.plot(None, None, mode='callback',
     #                      callback=lambda plt: my_callback_boxplot_grid_cellular_truth_tables(plt, dataframes_dict, significance_dict, metric_alias[metric], palette_cmp),
     #                      style='latex', **PLOT_ARGS)
@@ -922,7 +969,7 @@ def boxplot_grid_cellular_truth_tables(
 
 def my_callback_boxplot_grid_cellular_truth_tables(data: dict[str, pd.DataFrame], significance_dict: dict[str, dict[str, dict[str, bool]]], y_title: str, palette_cmp: dict[str, str]): 
     n, m = 3, 3
-    fig, ax = plt.subplots(n, m, figsize=(20, 20), layout='tight', squeeze=False)
+    fig, ax = plt.subplots(n, m, figsize=(40, 30), layout='tight', squeeze=False)
     n_bits = np.array(list(range(8, 16 + 1))).reshape(n, m)
     for i in range(n):
         for j in range(m):
@@ -979,8 +1026,8 @@ def my_callback_boxplot_grid_cellular_truth_tables(data: dict[str, pd.DataFrame]
                 single_width = box_total_width / n_hues
 
                 for method_label, hue_dict in signif.items():
-                    for hue_str, passed in hue_dict.items():
-                        if not passed:
+                    for hue_str, delta_val in hue_dict.items():
+                        if delta_val is None:
                             continue
                         # find method index and hue index
                         try:
@@ -1003,14 +1050,14 @@ def my_callback_boxplot_grid_cellular_truth_tables(data: dict[str, pd.DataFrame]
                         # attempt to place the star at a fixed vertical axes fraction so all stars
                         # appear at the same height across subplots
                         try:
-                            # transform data x to display coords, then to axes coords
                             x_disp, _ = ax[i, j].transData.transform((x_data, 0))
                             x_axes = ax[i, j].transAxes.inverted().transform((x_disp, 0))[0]
                             y_axes_fixed = 0.1
-                            ax[i, j].text(x_axes, y_axes_fixed, r'\textbf{*}', transform=ax[i, j].transAxes,
-                                          ha='center', va='center', fontsize=65, color='black', clip_on=False)
+                            ax[i, j].text(x_axes, y_axes_fixed, f'{delta_val:.2f}', transform=ax[i, j].transAxes,
+                                          ha='center', va='center', fontsize=40, color='white', fontweight='bold',
+                                          rotation=90, clip_on=False,
+                                          path_effects=[pe.withStroke(linewidth=7, foreground='black')])
                         except Exception:
-                            # fallback: place using data coords near bottom of axis
                             vals = df[(df['Method'] == method_label) & (df[r"$p$"] == str(hue_str))][y_title].dropna()
                             if len(vals) == 0:
                                 continue
@@ -1018,7 +1065,10 @@ def my_callback_boxplot_grid_cellular_truth_tables(data: dict[str, pd.DataFrame]
                             yrange = max((y1 - y0), 1e-6)
                             stagger = (hi - (n_hues - 1) / 2.0) * 0.02 * yrange
                             y_coord = y0 + 0.02 * yrange + stagger
-                            ax[i, j].text(x_data, y_coord, r'\textbf{*}', ha='center', va='bottom', fontsize=65, color='black', clip_on=False)
+                            ax[i, j].text(x_data, y_coord, f'{delta_val:.2f}', ha='center', va='bottom',
+                                          fontsize=40, color='white', fontweight='bold',
+                                          rotation=90, clip_on=False,
+                                          path_effects=[pe.withStroke(linewidth=7, foreground='black')])
             except Exception:
                 # keep plotting even if annotations fail
                 pass
@@ -1038,7 +1088,7 @@ def my_callback_boxplot_grid_cellular_truth_tables(data: dict[str, pd.DataFrame]
                 ax[i, j].set_xlabel('')
             
             if j == 0:
-                ax[i, j].set_ylabel(y_title, labelpad=10 if i == n - 1 else (15 if i == 0 else 17), fontsize=38)
+                ax[i, j].set_ylabel(y_title, labelpad=10 if i == n - 1 else (15 if i == 0 else 17), fontsize=46)
             else:
                 # empty y labels for
                 ax[i, j].set_ylabel('')
@@ -1047,11 +1097,6 @@ def my_callback_boxplot_grid_cellular_truth_tables(data: dict[str, pd.DataFrame]
 
             ax[i, j].grid(True, axis='y', which='major', color='gray', linestyle='--', linewidth=0.5)
     return fig
-
-
-
-
-
 
 
 def boxplot_grid_baseline_pressures_truth_tables(
@@ -1621,7 +1666,103 @@ def print_table_max_and_med_non_linearity(data: dict, dupl_retry: int, gen: int,
         
         table_string = table_string[:-2] + r" \\ " + "\n"
     print(table_string)
-    
+
+def _safe_ci(values: list[float], confidence: float = 0.95) -> tuple[float, float]:
+    mean_val = float(np.mean(values))
+    sem_val = stats.sem(values)
+    if sem_val == 0 or np.isnan(sem_val):
+        # zero variance (all repetitions found the same value): degenerate CI
+        return mean_val, mean_val
+    return stats.t.interval(confidence, df=len(values) - 1, loc=mean_val, scale=sem_val)
+
+def print_table_ci_best_nonlinearity(data: dict, dupl_retry: int, gen: int, torus_dim: int, radius: int, cmp_rate: float):
+    n_bits = list(range(8, 16 + 1))
+    table_string = ""
+    for nb in n_bits:
+        table_string += f"{nb} & "
+
+        baseline_values = data[str(nb)]['best_fitness'][f'baseline{dupl_retry}retry'][str(gen)]
+        b_ci_low, b_ci_high = _safe_ci(baseline_values)
+        table_string += f"[{b_ci_low:.2f}, {b_ci_high:.2f}] & "
+
+        method = f'torus{torus_dim}_radius{radius}_cmp{str(cmp_rate)}'
+        cellular_values = data[str(nb)]['best_fitness'][method][str(gen)]
+        c_ci_low, c_ci_high = _safe_ci(cellular_values)
+        table_string += f"[{c_ci_low:.2f}, {c_ci_high:.2f}] & "
+
+        table_string = table_string[:-2] + r" \\ " + "\n"
+    print(table_string)
+
+
+def print_table_spearman_diversity_vs_nonlinearity(
+    results_folder: str,
+    pop_size: int,
+    gen: int,
+    dupl_retry: int,
+    n_bits: list[int],
+    seed_indexes: list[int],
+    pressure: int,
+    torus_dim: int,
+    cmp_rate: float,
+    diversity_metric: str,
+    auc_last_generation: int
+):
+    loaded_history = load_history(
+        results_folder=results_folder,
+        pop_size=pop_size,
+        gen=gen,
+        dupl_retry=dupl_retry,
+        n_bits=n_bits,
+        seed_indexes=seed_indexes,
+        pressure=pressure,
+        torus_dim=torus_dim,
+        radius=[1, 2, 3],
+        cmp_rate=[cmp_rate]
+    )
+
+    methods = {
+        r'\notoroid': None,
+        r'\toroid{2}{1}': 1,
+        r'\toroid{2}{2}': 2,
+        r'\toroid{2}{3}': 3,
+    }
+
+    table_string = ""
+    for nb in n_bits:
+        family_labels, family_rhos, family_pvalues = [], [], []
+        for label, r in methods.items():
+            aucs, finals = [], []
+            for seed in seed_indexes:
+                if r is None:
+                    df = loaded_history[f'{pop_size}_{gen}_{dupl_retry}_{nb}_{seed}_{pressure}_{0}_{0}_{0.0}']
+                else:
+                    df = loaded_history[f'{pop_size}_{gen}_{0}_{nb}_{seed}_{0}_{torus_dim}_{r}_{cmp_rate}']
+                diversity_trace = df[diversity_metric].to_list()[:auc_last_generation + 1]
+                aucs.append(float(np.mean(diversity_trace)))
+                finals.append(float(df['best_fitness'].to_list()[-1]))
+            if np.std(aucs) == 0 or np.std(finals) == 0:
+                # one of the two variables is constant across repetitions (e.g. every seed
+                # reaches the same best-known non-linearity): Spearman's rho is undefined.
+                rho, p_val = np.nan, 1.0
+            else:
+                rho, p_val = stats.spearmanr(aucs, finals)
+            family_labels.append(label)
+            family_rhos.append(rho)
+            family_pvalues.append(p_val)
+
+        corrected_reject = holm_bonferroni_correction(family_pvalues, alpha=0.05)
+
+        table_string += f"{nb} & "
+        for rho, passed in zip(family_rhos, corrected_reject):
+            if np.isnan(rho):
+                table_string += r"-- & "
+            else:
+                sig_marker = r'^{*}' if passed else ''
+                table_string += f"${rho:.2f}{sig_marker}$ & "
+        table_string = table_string[:-2] + r" \\ " + "\n"
+
+    print(table_string)
+
 ## PROGRAMS
 
 
@@ -1832,13 +1973,21 @@ def main_truth_tables():
     # )
     # make_colorbar(vmin, vmax)
     # print_table_max_and_med_non_linearity(
-    #     data=data_box,
+    #     data=data_box_100_1000,
     #     dupl_retry=dupl_retry,
-    #     gen=999,
+    #     gen=1000 - 1,
     #     torus_dim=torus_dim,
     #     radius=1,
     #     cmp_rate=0.5
     # )
+    print_table_ci_best_nonlinearity(
+        data=data_box_100_1000,
+        dupl_retry=dupl_retry,
+        gen=1000 - 1,
+        torus_dim=torus_dim,
+        radius=1,
+        cmp_rate=0.5
+    )
     # quit()
     # for metric in ['best_fitness', 'pop_med_fitness', 'real_global_moran_I', 'median_hamming_distance', 'euclidean_diversity_median']:
     # #for metric in ['median_hamming_distance', 'euclidean_diversity_median']:
@@ -1852,6 +2001,19 @@ def main_truth_tables():
     #             dpi=800
     #         )
     # quit()
+    print_table_spearman_diversity_vs_nonlinearity(
+        results_folder=results_folder,
+        pop_size=pop_size,
+        gen=n_iter,
+        dupl_retry=dupl_retry,
+        n_bits=n_bits,
+        seed_indexes=seed_indexes,
+        pressure=pressure,
+        torus_dim=torus_dim,
+        cmp_rate=0.5,
+        diversity_metric='real_global_moran_I',
+        auc_last_generation=500
+    )
     # boxplot_grid_baseline_pressures_truth_tables(
     #     data=data_box_100_1000_pressures,
     #     metric='best_fitness',
@@ -1863,15 +2025,15 @@ def main_truth_tables():
     #     dpi=800
     # )
     # quit()
-    boxplot_grid_cellular_truth_tables(
-        data=data_box_100_1000,
-        baseline_vs_baseline10retry=False,
-        metric='best_fitness',
-        gen=1000 - 1,
-        palette_cmp=palette_cmp,
-        save_png=True,
-        dpi=800
-    )
+    # boxplot_grid_cellular_truth_tables(
+    #     data=data_box_100_1000,
+    #     baseline_vs_baseline10retry=False,
+    #     metric='best_fitness',
+    #     gen=1000 - 1,
+    #     palette_cmp=palette_cmp,
+    #     save_png=True,
+    #     dpi=800
+    # )
 
 
 

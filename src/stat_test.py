@@ -33,6 +33,19 @@ def is_mannwhitneyu_passed(data1: list[float], data2: list[float], alternative: 
         return False, 1.0
 
 
+def holm_bonferroni_correction(p_values: list[float], alpha: float = 0.05) -> list[bool]:
+    """
+    Given p-values from a family of independent tests sharing the same control
+    (e.g., all <radius, p> cellular configurations tested against the baseline for a fixed n),
+    return, in the same order, whether each hypothesis remains significant after
+    Holm-Bonferroni step-down correction for multiple comparisons.
+    """
+    if len(p_values) == 0:
+        return []
+    reject, _, _, _ = multipletests(p_values, alpha=alpha, method='holm')
+    return reject.tolist()
+
+
 def perform_mannwhitneyu_holm_bonferroni(data: dict[str, list[float]], alternative: str, alpha: float = 0.05, method: str = 'holm') -> tuple[dict[str, bool], dict[str, dict[str, bool]]]:
     if len(data) <= 1:
         raise AttributeError(f'data must have at least two entries, found {len(data)} instead.')
