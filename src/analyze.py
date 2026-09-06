@@ -975,7 +975,7 @@ def my_callback_boxplot_grid_cellular_truth_tables(data: dict[str, pd.DataFrame]
         for j in range(m):
             nb = str(n_bits[i, j])
             df = data[nb]
-            ax[i, j].set_title(f'$n = {nb}$', fontsize=50)
+            ax[i, j].set_title(f'$n = {nb}$', fontsize=70)
             # Grid and ticks
             ax[i, j].grid(True, axis='both', which='major', color='gray', linestyle='--', linewidth=0.5)
             ax[i, j].tick_params(axis='both', which='both', reset=False, bottom=False, top=False, left=False, right=False)
@@ -1054,9 +1054,9 @@ def my_callback_boxplot_grid_cellular_truth_tables(data: dict[str, pd.DataFrame]
                             x_axes = ax[i, j].transAxes.inverted().transform((x_disp, 0))[0]
                             y_axes_fixed = 0.1
                             ax[i, j].text(x_axes, y_axes_fixed, f'{delta_val:.2f}', transform=ax[i, j].transAxes,
-                                          ha='center', va='center', fontsize=40, color='white', fontweight='bold',
+                                          ha='center', va='center', fontsize=46, color='black', fontweight='bold',
                                           rotation=90, clip_on=False,
-                                          path_effects=[pe.withStroke(linewidth=7, foreground='black')])
+                                          path_effects=[pe.withStroke(linewidth=4, foreground='white')])
                         except Exception:
                             vals = df[(df['Method'] == method_label) & (df[r"$p$"] == str(hue_str))][y_title].dropna()
                             if len(vals) == 0:
@@ -1066,9 +1066,9 @@ def my_callback_boxplot_grid_cellular_truth_tables(data: dict[str, pd.DataFrame]
                             stagger = (hi - (n_hues - 1) / 2.0) * 0.02 * yrange
                             y_coord = y0 + 0.02 * yrange + stagger
                             ax[i, j].text(x_data, y_coord, f'{delta_val:.2f}', ha='center', va='bottom',
-                                          fontsize=40, color='white', fontweight='bold',
+                                          fontsize=46, color='black', fontweight='bold',
                                           rotation=90, clip_on=False,
-                                          path_effects=[pe.withStroke(linewidth=7, foreground='black')])
+                                          path_effects=[pe.withStroke(linewidth=4, foreground='white')])
             except Exception:
                 # keep plotting even if annotations fail
                 pass
@@ -1077,18 +1077,18 @@ def my_callback_boxplot_grid_cellular_truth_tables(data: dict[str, pd.DataFrame]
             ax[i, j].yaxis.get_major_locator().set_params(integer=True) 
             
 
-            ax[i, j].tick_params(axis='y', labelsize=32)
+            ax[i, j].tick_params(axis='y', labelsize=36)
             if i == n - 1:
-                ax[i, j].set_xlabel('Method', fontsize=44)
+                ax[i, j].set_xlabel('Method', fontsize=46)
                 # increase font size of x tick labels for bottom row
-                ax[i, j].tick_params(axis='x', labelsize=38)
+                ax[i, j].tick_params(axis='x', labelsize=44)
             else:
                 ax[i, j].tick_params(labelbottom=False)
                 ax[i, j].set_xticklabels([])
                 ax[i, j].set_xlabel('')
             
             if j == 0:
-                ax[i, j].set_ylabel(y_title, labelpad=10 if i == n - 1 else (15 if i == 0 else 17), fontsize=46)
+                ax[i, j].set_ylabel(y_title, labelpad=10 if i == n - 1 else (15 if i == 0 else 17), fontsize=70)
             else:
                 # empty y labels for
                 ax[i, j].set_ylabel('')
@@ -1694,7 +1694,7 @@ def print_table_ci_best_nonlinearity(data: dict, dupl_retry: int, gen: int, toru
     print(table_string)
 
 
-def print_table_spearman_diversity_vs_nonlinearity(
+def print_table_diversity_vs_nonlinearity(
     results_folder: str,
     pop_size: int,
     gen: int,
@@ -1704,9 +1704,40 @@ def print_table_spearman_diversity_vs_nonlinearity(
     pressure: int,
     torus_dim: int,
     cmp_rate: float,
-    diversity_metric: str,
-    auc_last_generation: int
+    auc_last_generation: int,
+    correlation_method: str = 'spearman',
+    diversity_metrics: list[str] = None
 ):
+    """
+    Print, as a ready-to-paste LaTeX table body, the correlation between a per-repetition
+    summary of each diversity metric (its median value over generations 0..auc_last_generation)
+    and that repetition's final best-so-far nonlinearity, for the baseline and the three
+    cellular radii (torus_dim, r in {1,2,3}) at a fixed cmp_rate. One \\multirow block per
+    diversity metric is printed, in the order given by `diversity_metrics`, separated by
+    \\midrule (no trailing \\midrule after the last block, since \\bottomrule is expected to be
+    part of the surrounding, statically-written table template).
+
+    correlation_method: one of 'pearson', 'spearman', 'kendall'.
+    """
+    if diversity_metrics is None:
+        diversity_metrics = ['real_global_moran_I', 'median_hamming_distance', 'euclidean_diversity_median']
+
+    metric_display = {
+        'real_global_moran_I': 'I',
+        'median_hamming_distance': 'H',
+        'euclidean_diversity_median': 'E',
+    }
+
+    correlation_functions = {
+        'pearson': stats.pearsonr,
+        'spearman': stats.spearmanr,
+        'kendall': stats.kendalltau,
+    }
+    if correlation_method not in correlation_functions:
+        raise ValueError(f"correlation_method must be one of {list(correlation_functions.keys())}, "
+                          f"found '{correlation_method}' instead.")
+    corr_func = correlation_functions[correlation_method]
+
     loaded_history = load_history(
         results_folder=results_folder,
         pop_size=pop_size,
@@ -1727,39 +1758,52 @@ def print_table_spearman_diversity_vs_nonlinearity(
         r'\toroid{2}{3}': 3,
     }
 
+    def _fmt(rho: float, passed: bool) -> str:
+        if np.isnan(rho):
+            return r"{--}"
+        marker = r"{$^{*}$}" if passed else ""
+        return f"{rho:.2f}{marker}"
+
     table_string = ""
-    for nb in n_bits:
-        family_labels, family_rhos, family_pvalues = [], [], []
-        for label, r in methods.items():
-            aucs, finals = [], []
-            for seed in seed_indexes:
-                if r is None:
-                    df = loaded_history[f'{pop_size}_{gen}_{dupl_retry}_{nb}_{seed}_{pressure}_{0}_{0}_{0.0}']
+    for metric in diversity_metrics:
+        for i, nb in enumerate(n_bits):
+            if i == 0:
+                row_prefix = f"    \\multirow{{{len(n_bits)}}}{{*}}{{${metric_display[metric]}$}}\n     & "
+            else:
+                row_prefix = "     & "
+
+            family_labels, family_rhos, family_pvalues = [], [], []
+            for label, r in methods.items():
+                aucs, finals = [], []
+                for seed in seed_indexes:
+                    if r is None:
+                        df = loaded_history[f'{pop_size}_{gen}_{dupl_retry}_{nb}_{seed}_{pressure}_{0}_{0}_{0.0}']
+                    else:
+                        df = loaded_history[f'{pop_size}_{gen}_{0}_{nb}_{seed}_{0}_{torus_dim}_{r}_{cmp_rate}']
+                    diversity_trace = df[metric].to_list()[:auc_last_generation + 1]
+                    aucs.append(float(np.median(diversity_trace)))
+                    finals.append(float(df['best_fitness'].to_list()[-1]))
+
+                if np.std(aucs) == 0 or np.std(finals) == 0:
+                    rho, p_val = np.nan, 1.0
                 else:
-                    df = loaded_history[f'{pop_size}_{gen}_{0}_{nb}_{seed}_{0}_{torus_dim}_{r}_{cmp_rate}']
-                diversity_trace = df[diversity_metric].to_list()[:auc_last_generation + 1]
-                aucs.append(float(np.mean(diversity_trace)))
-                finals.append(float(df['best_fitness'].to_list()[-1]))
-            if np.std(aucs) == 0 or np.std(finals) == 0:
-                # one of the two variables is constant across repetitions (e.g. every seed
-                # reaches the same best-known non-linearity): Spearman's rho is undefined.
-                rho, p_val = np.nan, 1.0
-            else:
-                rho, p_val = stats.spearmanr(aucs, finals)
-            family_labels.append(label)
-            family_rhos.append(rho)
-            family_pvalues.append(p_val)
+                    rho, p_val = corr_func(aucs, finals)
 
-        corrected_reject = holm_bonferroni_correction(family_pvalues, alpha=0.05)
+                family_labels.append(label)
+                family_rhos.append(rho)
+                family_pvalues.append(p_val)
 
-        table_string += f"{nb} & "
-        for rho, passed in zip(family_rhos, corrected_reject):
-            if np.isnan(rho):
-                table_string += r"-- & "
-            else:
-                sig_marker = r'^{*}' if passed else ''
-                table_string += f"${rho:.2f}{sig_marker}$ & "
-        table_string = table_string[:-2] + r" \\ " + "\n"
+            corrected_reject = holm_bonferroni_correction(family_pvalues, alpha=0.05)
+
+            table_string += f"{row_prefix}{nb} & "
+            for rho, passed in zip(family_rhos, corrected_reject):
+                table_string += f"{_fmt(rho, passed)} & "
+            table_string = table_string[:-2] + r" \\ " + "\n"
+
+        table_string += "    \\midrule\n"
+
+    if table_string.endswith("    \\midrule\n"):
+        table_string = table_string[: -len("    \\midrule\n")]
 
     print(table_string)
 
@@ -1972,6 +2016,7 @@ def main_truth_tables():
     #     dpi=800,
     # )
     # make_colorbar(vmin, vmax)
+    
     # print_table_max_and_med_non_linearity(
     #     data=data_box_100_1000,
     #     dupl_retry=dupl_retry,
@@ -1980,15 +2025,17 @@ def main_truth_tables():
     #     radius=1,
     #     cmp_rate=0.5
     # )
-    print_table_ci_best_nonlinearity(
-        data=data_box_100_1000,
-        dupl_retry=dupl_retry,
-        gen=1000 - 1,
-        torus_dim=torus_dim,
-        radius=1,
-        cmp_rate=0.5
-    )
+    
+    # print_table_ci_best_nonlinearity(
+    #     data=data_box_100_1000,
+    #     dupl_retry=dupl_retry,
+    #     gen=1000 - 1,
+    #     torus_dim=torus_dim,
+    #     radius=1,
+    #     cmp_rate=0.5
+    # )
     # quit()
+    
     # for metric in ['best_fitness', 'pop_med_fitness', 'real_global_moran_I', 'median_hamming_distance', 'euclidean_diversity_median']:
     # #for metric in ['median_hamming_distance', 'euclidean_diversity_median']:
     #     for cr in [0.5]:
@@ -2001,19 +2048,22 @@ def main_truth_tables():
     #             dpi=800
     #         )
     # quit()
-    print_table_spearman_diversity_vs_nonlinearity(
-        results_folder=results_folder,
-        pop_size=pop_size,
-        gen=n_iter,
-        dupl_retry=dupl_retry,
-        n_bits=n_bits,
-        seed_indexes=seed_indexes,
-        pressure=pressure,
-        torus_dim=torus_dim,
-        cmp_rate=0.5,
-        diversity_metric='real_global_moran_I',
-        auc_last_generation=500
-    )
+
+    print_table_diversity_vs_nonlinearity(
+	    results_folder=results_folder,
+	    pop_size=pop_size,
+	    gen=n_iter,
+	    dupl_retry=dupl_retry,
+	    n_bits=n_bits,
+	    seed_indexes=seed_indexes,
+	    pressure=pressure,
+	    torus_dim=torus_dim,
+	    cmp_rate=0.5,
+	    auc_last_generation=500,
+	    correlation_method='pearson'
+	)
+    quit()
+
     # boxplot_grid_baseline_pressures_truth_tables(
     #     data=data_box_100_1000_pressures,
     #     metric='best_fitness',
@@ -2025,15 +2075,16 @@ def main_truth_tables():
     #     dpi=800
     # )
     # quit()
-    # boxplot_grid_cellular_truth_tables(
-    #     data=data_box_100_1000,
-    #     baseline_vs_baseline10retry=False,
-    #     metric='best_fitness',
-    #     gen=1000 - 1,
-    #     palette_cmp=palette_cmp,
-    #     save_png=True,
-    #     dpi=800
-    # )
+    
+    boxplot_grid_cellular_truth_tables(
+        data=data_box_100_1000,
+        baseline_vs_baseline10retry=False,
+        metric='best_fitness',
+        gen=1000 - 1,
+        palette_cmp=palette_cmp,
+        save_png=True,
+        dpi=800
+    )
 
 
 
